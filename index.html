@@ -499,49 +499,44 @@ function RadiusMap({gps,radius,height=140,fullscreen=false}){
   const mapRef=useRef(null);
   const leafRef=useRef(null);
   const circleRef=useRef(null);
-  const userMovedRef=useRef(false); // true si l'user a bougé la carte manuellement
+  const initDoneRef=useRef(false);
 
   useEffect(()=>{
     if(!mapRef.current||leafRef.current||!gps)return;
     const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
-    const opts=fullscreen
-      ?{zoomControl:true,attributionControl:false,dragging:true,scrollWheelZoom:true,doubleClickZoom:true,touchZoom:true}
-      :{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false};
-    const map=L.map(mapRef.current,opts).setView([gps.lat,gps.lng],zoom);
+    const map=L.map(mapRef.current,{
+      zoomControl:fullscreen,attributionControl:false,
+      dragging:true,scrollWheelZoom:fullscreen,
+      doubleClickZoom:fullscreen,touchZoom:true
+    }).setView([gps.lat,gps.lng],zoom);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
-    if(!fullscreen){
-      const icon=L.divIcon({className:'',html:`<svg width="20" height="26" viewBox="0 0 20 26"><path d="M10 26C10 26 1 16 1 9A9 9 0 1 1 19 9C19 16 10 26 10 26Z" fill="#1D9E75" stroke="white" stroke-width="1.5"/><circle cx="10" cy="9" r="3.5" fill="white"/></svg>`,iconSize:[20,26],iconAnchor:[10,26]});
-      L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
-    } else {
-      // Sur le plein écran, marqueur plus visible
-      const icon=L.divIcon({className:'',html:`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`,iconSize:[28,38],iconAnchor:[14,38]});
-      L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
-      // Détecter si l'user bouge la carte
-      map.on('dragstart zoomstart',()=>{userMovedRef.current=true;});
-    }
+    const iconHtml=fullscreen
+      ?`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`
+      :`<svg width="20" height="26" viewBox="0 0 20 26"><path d="M10 26C10 26 1 16 1 9A9 9 0 1 1 19 9C19 16 10 26 10 26Z" fill="#1D9E75" stroke="white" stroke-width="1.5"/><circle cx="10" cy="9" r="3.5" fill="white"/></svg>`;
+    const iconSize=fullscreen?[28,38]:[20,26];
+    const iconAnchor=fullscreen?[14,38]:[10,26];
+    const icon=L.divIcon({className:'',html:iconHtml,iconSize,iconAnchor});
+    L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
     circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.12}).addTo(map);
     leafRef.current=map;
-    return()=>{map.remove();leafRef.current=null;circleRef.current=null;userMovedRef.current=false;};
+    initDoneRef.current=true;
+    return()=>{map.remove();leafRef.current=null;circleRef.current=null;initDoneRef.current=false;};
   },[gps?.lat,gps?.lng]);
 
+  // Quand le radius change : met à jour le cercle SEULEMENT, pas le zoom ni la vue
   useEffect(()=>{
-    if(!leafRef.current||!circleRef.current||!gps)return;
+    if(!leafRef.current||!circleRef.current||!initDoneRef.current)return;
     circleRef.current.setRadius(radius);
-    // En mode fullscreen : recentre seulement si l'user n'a pas bougé
-    // En mode normal : toujours recentrer
-    if(!fullscreen||!userMovedRef.current){
-      const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
-      leafRef.current.setView([gps.lat,gps.lng],zoom,{animate:true,duration:0.4});
-    }
-    // Reset le flag quand le slider change (l'user veut voir sa nouvelle zone)
-    if(fullscreen) userMovedRef.current=false;
+    // Zoom automatique seulement si la carte vient d'être ouverte (initDone vient de passer à true)
+    // Après ça, l'utilisateur est libre de naviguer
   },[radius]);
 
-  const h_style=fullscreen
-    ?{width:"100%",height:typeof height==="number"?height+"px":height,display:"block"}
+  const style=fullscreen
+    ?{width:"100%",height:typeof height==="number"?height+"px":height}
     :{height,borderRadius:"var(--rl)",overflow:"hidden",border:"0.5px solid var(--border)"};
-  if(!gps)return h("div",{style:{...h_style,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"GPS requis");
-  return h("div",{ref:mapRef,style:h_style});
+
+  if(!gps)return h("div",{style:{...style,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"GPS requis");
+  return h("div",{ref:mapRef,style});
 }
 // ── BEREAL CAMERA ──────────────────────────────────────────
 function BeRealCamera({onCapture,onCancel,gps}){
