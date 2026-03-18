@@ -851,9 +851,7 @@ function ZoneMapSingle({gps,radius}){
   useEffect(()=>{
     if(!leafRef.current||!circleRef.current||!gps)return;
     circleRef.current.setRadius(radius);
-    const zoom=radius<100?17:radius<250?16:radius<600?15:radius<1500?14:radius<3000?13:12;
-    leafRef.current.setView([gps.lat,gps.lng],zoom,{animate:true,duration:0.4});
-    setTimeout(()=>leafRef.current?.invalidateSize(),50);
+    // Pas de setView ici — l'utilisateur doit pouvoir naviguer librement
   },[radius]);
 
   if(!gps) return h("div",{style:{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"var(--text3)",fontSize:14}},"⚠️ GPS non disponible");
@@ -886,12 +884,10 @@ function ZonePickerScreen({gps,radius,onRadiusChange,onConfirm,onBack,fR}){
     return()=>{map.remove();leafRef.current=null;circleRef.current=null;};
   },[]);
 
-  // Mettre à jour le cercle quand radius change
+  // Mettre à jour le cercle quand radius change — pas de recentrage
   useEffect(()=>{
     if(!leafRef.current||!circleRef.current||!gps)return;
     circleRef.current.setRadius(radius);
-    const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
-    leafRef.current.setView([gps.lat,gps.lng],zoom,{animate:true,duration:0.5});
   },[radius]);
 
   // La carte remplit tout l'écran via une div absolue
