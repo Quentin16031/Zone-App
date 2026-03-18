@@ -1013,16 +1013,36 @@ function PublishScreen({myUid,gps,cats,onBack}){
   );
 
   // ── ÉTAPE 2 : ZONE ──
-  if(step==="zone"){
-    return h(ZonePickerScreen,{
-      gps:postGps,
-      radius:rad,
-      onRadiusChange:setRad,
-      onConfirm:()=>{setZoneConfirmed(true);setStep("form");},
-      onBack:()=>setStep("form"),
-      fR
-    });
-  }
+  if(step==="zone") return h("div",{style:{minHeight:"100vh",background:"var(--bg3)",display:"flex",flexDirection:"column"}},
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",borderBottom:"0.5px solid var(--border)",padding:"0 16px"}},
+      h("div",{style:{paddingTop:52,paddingBottom:14,display:"flex",alignItems:"center",gap:14}},
+        h(BackBtn,{onClick:()=>setStep("form")}),
+        h("span",{style:{fontSize:17,fontWeight:700,flex:1}},"Définir la zone"),
+        h("span",{style:{fontSize:15,fontWeight:800,color:"var(--green)"}},fR(rad))
+      )
+    ),
+    h("div",{style:{flex:1,padding:"16px",display:"flex",flexDirection:"column",gap:14}},
+      h(RadiusMap,{gps:postGps,radius:rad,height:320}),
+      h("div",{style:{background:"#fff",borderRadius:"var(--rl)",padding:"16px",boxShadow:"var(--shadow)"}},
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:10,fontSize:13,fontWeight:600}},
+          h("span",null,"Rayon de visibilité"),
+          h("span",{style:{color:"var(--green)"}},fR(rad))
+        ),
+        h("input",{type:"range",min:50,max:5000,step:50,value:rad,
+          onChange:e=>setRad(Number(e.target.value)),
+          style:{width:"100%",accentColor:"var(--green)"}}),
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:"var(--text3)"}},
+          h("span",null,"50 m"),h("span",null,"2,5 km"),h("span",null,"5 km")
+        )
+      ),
+      h("button",{onClick:()=>{setZoneConfirmed(true);setStep("form");},style:{
+        width:"100%",padding:16,fontSize:15,fontWeight:700,
+        background:"var(--green)",color:"#fff",border:"none",
+        borderRadius:"var(--rl)",cursor:"pointer",
+        boxShadow:"0 4px 20px rgba(29,158,117,0.35)"
+      }},"✓ Confirmer cette zone")
+    )
+  );
 
   // ── ÉTAPE 1 : FORMULAIRE ──
   return h("div",{style:{minHeight:"100vh",background:"var(--bg3)",display:"flex",flexDirection:"column"}},
