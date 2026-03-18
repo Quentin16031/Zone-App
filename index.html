@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ZONE">
+<meta name="theme-color" content="#1D9E75">
+<title>ZONE</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#EEF1F8;color:#0D1117;max-width:460px;margin:0 auto;min-height:100vh}
+:root{
+  --bg:#fff;
+  --bg2:#F4F6FB;
+  --bg3:#EEF1F8;
+  --text:#0D1117;
+  --text2:#6B7280;
+  --text3:#9CA3AF;
+  --border:rgba(0,0,0,.07);
+  --border2:rgba(0,0,0,.12);
+  --border3:rgba(0,0,0,.2);
+  --r:14px;--rl:20px;--rxl:28px;
+  --green:#1D9E75;--gbg:#E8F7F2;--gtxt:#0F6E56;
+  --purple:#7C6FF7;--pbg:#F0EFFD;--ptxt:#4C45B8;
+  --red:#EF4444;
+  --shadow:0 2px 16px rgba(0,0,0,0.07);
+  --shadow2:0 4px 24px rgba(0,0,0,0.10);
+}
+input,textarea,button,select{font-family:inherit}
+textarea,input{outline:none}
+input[type=range]{width:100%;accent-color:var(--green)}
+img{max-width:100%}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideBack{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes fadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.s-in{animation:slideIn .25s cubic-bezier(.25,.46,.45,.94) both}
+.s-back{animation:slideBack .25s cubic-bezier(.25,.46,.45,.94) both}
+.fade-up{animation:fadeUp .3s cubic-bezier(.25,.46,.45,.94) both}
+.camera-overlay{position:fixed;inset:0;background:#000;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center}
+/* Leaflet popup */
+.leaflet-popup-content-wrapper{border-radius:14px!important;box-shadow:var(--shadow2)!important}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useEffect,useMemo,useRef,useCallback}=React;
+const h=React.createElement;
+
+// ── Firebase ─────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey:"AIzaSyBKGatJ_EK7iRZ5qSYspsmJASYkvWl2VKs",
+  authDomain:"zone-app-9fcdd.firebaseapp.com",
+  databaseURL:"https://zone-app-9fcdd-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"zone-app-9fcdd",
+  storageBucket:"zone-app-9fcdd.firebasestorage.app",
+  messagingSenderId:"585253956052",
+  appId:"1:585253956052:web:5a333bc726fc343f2c8e41"
+});
+const auth=firebase.auth();
+const db=firebase.database();
+
+// ── Utilitaires ──────────────────────────────────────────
+function haversine(la1,lo1,la2,lo2){
+  const R=6371000,d1=(la2-la1)*Math.PI/180,d2=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(d1/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(d2/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+const fmtD=m=>m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(1)} km`;
+const fmtDate=ts=>new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+
+function uidHue(uid){
+  const hs=["#D85A30","#7F77DD","#378ADD","#D4537E","#BA7517","#1D9E75","#5DCAA5","#993C1D"];
+  const n=uid.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  return hs[n%hs.length];
+}
+
+function compressImg(file){
+  return new Promise(ok=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const i=new Image();
+      i.onload=()=>{
+        const MAX=520,sc=Math.min(1,MAX/Math.max(i.width,i.height));
+        const c=document.createElement('canvas');
+        c.width=Math.round(i.width*sc);c.height=Math.round(i.height*sc);
+        c.getContext('2d').drawImage(i,0,0,c.width,c.height);
+        ok(c.toDataURL('image/jpeg',0.55));
+      };
+      i.src=e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+function gpsToSvg(uLat,uLng,lat,lng,mpu){
+  const dlat=(lat-uLat)*(Math.PI/180)*6371000;
+  const dlng=(lng-uLng)*(Math.PI/180)*6371000*Math.cos(uLat*Math.PI/180);
+  return{x:50+dlng/mpu,y:50-dlat/mpu};
+}
+
+const canSee=(p,uid,gps)=>p.uid===uid||(gps&&haversine(gps.lat,gps.lng,p.lat,p.lng)<=p.radius);
+const aLbl=a=>a==="public"?{icon:"🌍",label:"Tout le monde",c:"#1D9E75",bg:"#E1F5EE"}:a==="private"?{icon:"🔒",label:"Moi seul",c:"#888",bg:"#f1efe8"}:{icon:"👥",label:`${Object.keys((a&&a.custom)||{}).length} abonné(s)`,c:"#378ADD",bg:"#E6F1FB"};
+
+// ── CARTE LEAFLET ────────────────────────────────────────
+function ZoneMap({posts,gps,myUid,onPostClick,users,showGpsPin=true,showControls=true}){
+  const mapRef=useRef(null);
+  const leafRef=useRef(null);
+  const markersRef=useRef({});
+  const circlesRef=useRef({});
+  const myMarkerRef=useRef(null);
+  const [hidden,setHidden]=useState(new Set());
+  const [showF,setShowF]=useState(false);
+  const [dateFilter,setDateFilter]=useState("all"); // all | today | week
+  const authorIds=[...new Set(posts.map(p=>p.uid))];
+
+  const now=Date.now();
+  const filteredByDate=posts.filter(p=>{
+    if(dateFilter==="today") return now-p.ts<86400000;
+    if(dateFilter==="week")  return now-p.ts<604800000;
+    return true;
+  });
+  const visPosts=filteredByDate.filter(p=>!hidden.has(p.uid));
+
+  const centeredRef=useRef(false);
+
+  // Init map
+  useEffect(()=>{
+    if(!mapRef.current||leafRef.current)return;
+    const center=gps?[gps.lat,gps.lng]:[48.8566,2.3522];
+    const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView(center,15);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
+    L.control.zoom({position:'topright'}).addTo(map);
+    leafRef.current=map;
+    if(gps)centeredRef.current=true;
+    return()=>{map.remove();leafRef.current=null;centeredRef.current=false;};
+  },[]);
+
+  // Centre sur GPS une seule fois au démarrage, jamais après
+  useEffect(()=>{
+    if(!leafRef.current||!gps||centeredRef.current)return;
+    leafRef.current.setView([gps.lat,gps.lng],16,{animate:true});
+    centeredRef.current=true;
+  },[gps?.lat,gps?.lng]);
+
+  // Marqueur "moi" — FIX: pas de transform CSS dans le HTML, iconAnchor seul positionne
+  useEffect(()=>{
+    if(!leafRef.current||!gps||!showGpsPin)return;
+    if(myMarkerRef.current){myMarkerRef.current.setLatLng([gps.lat,gps.lng]);return;}
+    const icon=L.divIcon({
+      className:'',
+      html:`<svg width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 37 C14 37 1 23 1 13 A13 13 0 1 1 27 13 C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/>
+        <circle cx="14" cy="12" r="5" fill="white"/>
+      </svg>`,
+      iconSize:[28,38],
+      iconAnchor:[14,38]  // pointe en bas au centre — pas de transform CSS
+    });
+    myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
+  },[gps?.lat,gps?.lng,showGpsPin]);
+
+  // Posts markers + zones
+  useEffect(()=>{
+    if(!leafRef.current)return;
+    Object.values(markersRef.current).forEach(m=>m.remove());
+    Object.values(circlesRef.current).forEach(c=>c.remove());
+    markersRef.current={};circlesRef.current={};
+    visPosts.forEach(p=>{
+      if(!p.lat||!p.lng)return;
+      const hue=uidHue(p.uid);
+      const u=users[p.uid];
+      const ul=canSee(p,myUid,gps);
+      const circle=L.circle([p.lat,p.lng],{radius:p.radius,color:hue,weight:1.5,fillColor:hue,fillOpacity:ul?0.1:0.04,dashArray:ul?null:'6 4'}).addTo(leafRef.current);
+      circlesRef.current[p.id]=circle;
+      const dot=L.divIcon({className:'',html:`<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="${hue}" stroke="white" stroke-width="2"/></svg>`,iconSize:[14,14],iconAnchor:[7,7]});
+      const marker=L.marker([p.lat,p.lng],{icon:dot}).addTo(leafRef.current);
+      marker.on('click',()=>onPostClick&&onPostClick(p));
+      const preview=ul?(p.text?p.text.slice(0,60):"📷 Photo"):"🔒 Hors zone";
+      marker.bindPopup(`<b>${u?.pseudo||"Utilisateur"}</b><br/>${preview}`);
+      markersRef.current[p.id]=marker;
+    });
+  },[visPosts.length,visPosts.map(p=>p.id).join(','),gps?.lat,gps?.lng,hidden,dateFilter]);
+
+  const dateOpts=[{v:"all",l:"Tous"},{v:"today",l:"Aujourd'hui"},{v:"week",l:"Cette semaine"}];
+
+  return h("div",{style:{position:"relative",height:"100%"}},
+    h("div",{ref:mapRef,style:{width:"100%",height:"100%",minHeight:380,borderRadius:0,overflow:"hidden",zIndex:0}}),
+    showControls&&h("div",{style:{position:"absolute",bottom:12,right:12,zIndex:999,display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}},
+      h("button",{onClick:()=>setShowF(v=>!v),style:{padding:"6px 12px",fontSize:12,borderRadius:"var(--r)",cursor:"pointer",background:(hidden.size>0||dateFilter!=="all")?"#E6F1FB":"#fff",color:(hidden.size>0||dateFilter!=="all")?"#185FA5":"var(--text)",border:`1px solid ${(hidden.size>0||dateFilter!=="all")?"#378ADD":"var(--border2)"}`,boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}},
+        "Filtrer"+(hidden.size>0?` · ${authorIds.length-hidden.size}/${authorIds.length}`:"")+(dateFilter!=="all"?` · ${dateOpts.find(o=>o.v===dateFilter)?.l}`:"")
+      ),
+      showF&&h("div",{style:{background:"#fff",border:"0.5px solid var(--border2)",borderRadius:"var(--rl)",padding:"12px 14px",minWidth:200,boxShadow:"0 4px 16px rgba(0,0,0,0.12)"}},
+        // Tri par date
+        h("div",{style:{fontSize:11,fontWeight:500,color:"var(--text2)",marginBottom:8}},"Période"),
+        h("div",{style:{display:"flex",gap:5,marginBottom:12}},
+          dateOpts.map(o=>h("button",{key:o.v,onClick:()=>setDateFilter(o.v),style:{flex:1,padding:"5px 4px",fontSize:11,borderRadius:"var(--r)",cursor:"pointer",fontWeight:dateFilter===o.v?500:400,background:dateFilter===o.v?"var(--bg2)":"transparent",border:dateFilter===o.v?"0.5px solid var(--border2)":"0.5px solid var(--border)",color:"var(--text)"}},o.l))
+        ),
+        // Filtre auteurs
+        h("div",{style:{fontSize:11,fontWeight:500,color:"var(--text2)",marginBottom:8,display:"flex",justifyContent:"space-between"}},
+          "Personnes",h("button",{onClick:()=>setHidden(new Set()),style:{fontSize:10,background:"transparent",border:"none",cursor:"pointer",color:"#378ADD",padding:0}},"Tout")
+        ),
+        authorIds.map(uid=>{const u=users[uid];const shown=!hidden.has(uid);const hue=uidHue(uid);
+          return h("div",{key:uid,onClick:()=>setHidden(s=>{const n=new Set(s);n.has(uid)?n.delete(uid):n.add(uid);return n;}),style:{display:"flex",alignItems:"center",gap:8,padding:"5px 2px",cursor:"pointer"}},
+            h("div",{style:{width:10,height:10,borderRadius:"50%",flexShrink:0,background:shown?hue:"var(--border)",border:`1.5px solid ${hue}`}}),
+            h("span",{style:{fontSize:12,flex:1,color:shown?"var(--text)":"var(--text3)",fontWeight:shown?500:400}},u?.pseudo||uid.slice(0,8)),
+            h("span",{style:{fontSize:10,color:"var(--text3)"}},posts.filter(p=>p.uid===uid).length)
+          );
+        })
+      )
+    )
+  );
+}
+
+// ── DB helpers ───────────────────────────────────────────
+const pushPost=(uid,data)=>db.ref('posts').push({...data,uid,ts:Date.now()});
+const patchPost=(id,d)=>db.ref('posts/'+id).update(d);
+const rmPost=id=>db.ref('posts/'+id).remove();
+const toggleLike=(id,uid,has)=>db.ref(`posts/${id}/likes/${uid}`).set(has?null:true);
+const saveProfile=(uid,d)=>db.ref('users/'+uid).update(d);
+const toggleFollow=(myUid,tid,isF)=>db.ref(`users/${myUid}/following/${tid}`).set(isF?null:true);
+const doBlock=(myUid,tid)=>{db.ref(`users/${myUid}/blocked/${tid}`).set(true);db.ref(`users/${myUid}/following/${tid}`).remove();};
+const doUnblock=(myUid,tid)=>db.ref(`users/${myUid}/blocked/${tid}`).remove();
+const saveCat=(uid,cid,d)=>db.ref(`categories/${uid}/${cid}`).set(d);
+const rmCat=(uid,cid)=>db.ref(`categories/${uid}/${cid}`).remove();
+
+// ── Petits composants ─────────────────────────────────────
+const Av=({photo,pseudo,sz=36,hue})=>{
+  const c=hue||"#1D9E75";
+  return photo
+    ?h("img",{src:photo,style:{width:sz,height:sz,borderRadius:"50%",objectFit:"cover",flexShrink:0,display:"block"}})
+    :h("div",{style:{width:sz,height:sz,borderRadius:"50%",flexShrink:0,background:c+"28",color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz>44?15:11,fontWeight:500}},(pseudo||"?").slice(0,2).toUpperCase());
+};
+
+const CatBdg=({catId,cats})=>{
+  const c=cats?.find(x=>x.id===catId);
+  if(!c)return null;
+  return h("span",{style:{fontSize:11,padding:"2px 7px",borderRadius:20,background:"var(--bg2)",color:"var(--text3)"}},`${c.emoji} ${c.name}`);
+};
+
+// ── ONBOARDING ────────────────────────────────────────────
+function Welcome({onStart}){
+  return h("div",{style:{display:"flex",flexDirection:"column",minHeight:"100vh",padding:"0 24px",background:"#fff"}},
+    h("div",{style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",paddingTop:48}},
+      h("div",{style:{width:72,height:72,borderRadius:20,background:"#1D9E75",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:24}},
+        h("span",{style:{fontSize:28,color:"#fff",fontWeight:600,letterSpacing:"0.05em"}},"Z")),
+      h("h1",{style:{fontSize:28,fontWeight:500,margin:"0 0 10px",letterSpacing:"0.06em"}},"ZONE"),
+      h("p",{style:{fontSize:15,color:"var(--text2)",lineHeight:1.7,maxWidth:300,margin:"0 0 6px"}},"Le réseau social ancré dans le réel."),
+      h("p",{style:{fontSize:14,color:"var(--text3)",lineHeight:1.75,maxWidth:300,margin:"0 0 36px"}},"Poste des photos visibles uniquement par ceux qui se trouvent au même endroit que toi."),
+      h("div",{style:{display:"flex",flexDirection:"column",gap:10,width:"100%",maxWidth:320}},
+        [["📍","Tes posts s'ancrent à ta position GPS et définissent une zone de visibilité"],
+         ["🔒","Contrôle précisément qui peut voir chaque catégorie de tes posts"],
+         ["📷","Partage des photos que seuls ceux présents peuvent découvrir"]]
+        .map(([icon,txt],i)=>h("div",{key:i,style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"var(--bg2)",borderRadius:"var(--rl)",textAlign:"left"}},
+          h("span",{style:{fontSize:20,flexShrink:0}},icon),
+          h("span",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.5}},txt)
+        ))
+      )
+    ),
+    h("div",{style:{padding:"24px 0 48px"}},
+      h("button",{onClick:onStart,style:{width:"100%",padding:14,fontSize:14,fontWeight:500,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer"}},"Commencer"),
+      h("p",{style:{textAlign:"center",fontSize:11,color:"var(--text3)",marginTop:10}},"En continuant tu acceptes les conditions d'utilisation")
+    )
+  );
+}
+
+function GoogleSignIn({onSign,loading,error}){
+  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"#fff",textAlign:"center"}},
+    h("div",{style:{fontSize:52,marginBottom:20}},"🔐"),
+    h("h2",{style:{fontSize:20,fontWeight:500,margin:"0 0 8px"}},"Connexion"),
+    h("p",{style:{fontSize:14,color:"var(--text2)",margin:"0 0 32px",lineHeight:1.6,maxWidth:280}},"Connecte-toi avec Google pour accéder à ZONE"),
+    error&&h("div",{style:{fontSize:13,color:"var(--red)",marginBottom:16,padding:"10px 14px",background:"#fcebeb",borderRadius:"var(--r)",maxWidth:300,width:"100%"}},"Erreur de connexion. Réessaie."),
+    h("button",{onClick:onSign,disabled:loading,style:{display:"flex",alignItems:"center",gap:12,padding:"13px 24px",background:"#fff",border:"0.5px solid var(--border2)",borderRadius:"var(--rl)",cursor:"pointer",fontSize:14,fontWeight:500,color:"var(--text)",width:"100%",maxWidth:300,justifyContent:"center",opacity:loading?0.6:1}},
+      h("svg",{width:18,height:18,viewBox:"0 0 18 18"},
+        h("path",{fill:"#4285F4",d:"M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"}),
+        h("path",{fill:"#34A853",d:"M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"}),
+        h("path",{fill:"#FBBC05",d:"M4.5 10.48A4.8 4.8 0 0 1 4.5 7.5V5.43H1.83a8 8 0 0 0 0 7.14l2.67-2.09z"}),
+        h("path",{fill:"#EA4335",d:"M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.65.02 8.98.02A8 8 0 0 0 1.83 5.43L4.5 7.5a4.77 4.77 0 0 1 4.48-3.92z"})
+      ),
+      loading?"Connexion…":"Continuer avec Google"
+    )
+  );
+}
+
+function ProfileSetup({uid,onDone}){
+  const [pseudo,setPseudo]=useState("");
+  const [bio,setBio]=useState("");
+  const [ville,setVille]=useState("");
+  const [photo,setPhoto]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const fileRef=useRef(null);
+  const ok=pseudo.trim().length>=2;
+
+  const handleFile=async f=>{
+    if(!f||!f.type.startsWith("image/"))return;
+    setPhoto(await compressImg(f));
+  };
+
+  const save=async()=>{
+    if(!ok||saving)return;
+    setSaving(true);
+    await saveProfile(uid,{pseudo:pseudo.trim(),bio:bio.trim(),ville:ville.trim(),photo:photo||null,following:{},blocked:{},createdAt:Date.now()});
+    onDone();
+  };
+
+  return h("div",{style:{padding:"0 24px 60px",background:"#fff",minHeight:"100vh"}},
+    h("div",{style:{paddingTop:24,display:"flex",justifyContent:"flex-end"}},h("span",{style:{fontSize:12,color:"var(--text3)"}},"1 / 2")),
+    h("h2",{style:{fontSize:20,fontWeight:500,margin:"12px 0 4px"}},"Crée ton profil"),
+    h("p",{style:{fontSize:13,color:"var(--text2)",margin:"0 0 22px"}},"Ces informations seront visibles par les autres"),
+    h("div",{style:{display:"flex",justifyContent:"center",marginBottom:22}},
+      h("div",{style:{position:"relative",cursor:"pointer"},onClick:()=>fileRef.current?.click()},
+        photo?h("img",{src:photo,style:{width:88,height:88,borderRadius:"50%",objectFit:"cover",display:"block",border:"3px solid #fff",outline:"2px solid var(--border2)"}})
+          :h("div",{style:{width:88,height:88,borderRadius:"50%",background:"var(--bg2)",border:"2px dashed var(--border2)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3}},h("span",{style:{fontSize:22}},"📷"),h("span",{style:{fontSize:10,color:"var(--text3)"}},"Photo")),
+        h("div",{style:{position:"absolute",bottom:2,right:2,width:24,height:24,borderRadius:"50%",background:"var(--text)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",border:"2px solid #fff"}},"✎"),
+        h("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+      )
+    ),
+    h("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+      h("div",null,
+        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Pseudo *"),
+        h("input",{value:pseudo,onChange:e=>setPseudo(e.target.value.replace(/[^a-zA-Z0-9_]/g,"")),placeholder:"ex: marie_explore",maxLength:24,style:{width:"100%",padding:"11px 14px",fontSize:14,border:`0.5px solid ${ok?"var(--border2)":"var(--border)"}`,borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}),
+        h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:3}},`${pseudo.length}/24 · lettres, chiffres et _`)
+      ),
+      h("div",null,
+        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Bio"),
+        h("textarea",{value:bio,onChange:e=>setBio(e.target.value),placeholder:"Ex : 📸 Chasseuse de panoramas · Lyon",maxLength:80,rows:2,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)",resize:"none"}}),
+        h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:3}},`${bio.length}/80`)
+      ),
+      h("div",null,
+        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Ville"),
+        h("input",{value:ville,onChange:e=>setVille(e.target.value),placeholder:"ex: Marseille",maxLength:40,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}})
+      )
+    ),
+    h("button",{onClick:save,disabled:!ok||saving,style:{marginTop:28,width:"100%",padding:13,fontSize:14,fontWeight:500,background:ok&&!saving?"var(--text)":"var(--bg2)",color:ok&&!saving?"#fff":"var(--text3)",border:"none",borderRadius:"var(--rl)",cursor:ok?"pointer":"default"}},saving?"Sauvegarde…":"Continuer →")
+  );
+}
+
+function GpsScreen({onDone}){
+  const request=()=>{
+    navigator.geolocation.getCurrentPosition(()=>onDone(),()=>onDone(),{enableHighAccuracy:true,timeout:8000});
+  };
+  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"#fff",textAlign:"center"}},
+    h("div",{style:{width:"100%",display:"flex",justifyContent:"flex-end",paddingTop:24,marginBottom:"auto"}}),
+    h("div",{style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",paddingBottom:48}},
+      h("div",{style:{fontSize:60,marginBottom:20}},"📍"),
+      h("h2",{style:{fontSize:20,fontWeight:500,margin:"0 0 12px"}},"Autoriser la localisation"),
+      h("p",{style:{fontSize:14,color:"var(--text2)",lineHeight:1.75,maxWidth:300,margin:"0 0 28px"}},"ZONE a besoin de ta position GPS pour déterminer quels posts tu peux voir et ancrer tes publications à un endroit."),
+      h("div",{style:{width:"100%",maxWidth:320,background:"var(--bg2)",borderRadius:"var(--rl)",padding:16,marginBottom:28,textAlign:"left"}},
+        [["✅","Voir les posts dans ta zone"],["✅","Ancrer tes posts à ta position"],["❌","Ta position n'est jamais partagée en temps réel"],["❌","Tes déplacements ne sont pas enregistrés"]]
+        .map(([ic,t],i)=>h("div",{key:i,style:{display:"flex",gap:10,padding:"6px 0",borderBottom:i<3?"0.5px solid var(--border)":"none",alignItems:"flex-start"}},
+          h("span",{style:{fontSize:13,flexShrink:0}},ic),h("span",{style:{fontSize:13,color:"var(--text2)"}},t)
+        ))
+      ),
+      h("div",{style:{display:"flex",flexDirection:"column",gap:10,width:"100%",maxWidth:320}},
+        h("button",{onClick:request,style:{padding:13,fontSize:14,fontWeight:500,background:"#1D9E75",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer"}},"Autoriser la localisation"),
+        h("button",{onClick:onDone,style:{padding:13,fontSize:14,background:"transparent",border:"0.5px solid var(--border2)",borderRadius:"var(--rl)",cursor:"pointer",color:"var(--text2)"}},"Pas maintenant")
+      )
+    )
+  );
+}
+
+
+
+// ── POST CARD ─────────────────────────────────────────────
+function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhoto}){
+  const u=users[post.uid];
+  const hue=uidHue(post.uid);
+  const d=gps?haversine(gps.lat,gps.lng,post.lat,post.lng):Infinity;
+  const vis=canSee(post,myUid,gps);
+  const own=post.uid===myUid;
+  const inZone=d<=post.radius;
+  const [menu,setMenu]=useState(false);
+  const [ed,setEd]=useState(false);
+  const [edTxt,setEdTxt]=useState(post.text||"");
+  const [del,setDel]=useState(false);
+  const [changeCat,setChangeCat]=useState(false);
+  const liked=!!(post.likes&&post.likes[myUid]);
+  const likeCount=post.likes?Object.keys(post.likes).length:0;
+
+  return h("div",{style:{background:"#fff",borderRadius:"var(--rl)",margin:"0 16px 12px",boxShadow:"var(--shadow)",overflow:"hidden"},onClick:()=>menu&&setMenu(false)},
+    vis&&post.photo&&h("div",{onClick:()=>onViewPhoto&&onViewPhoto(post),style:{width:"100%",overflow:"hidden",cursor:"zoom-in"}},
+      h("img",{src:post.photo,style:{width:"100%",display:"block"}})
+    ),
+    !vis&&post.photo&&h("div",{style:{aspectRatio:"4/3",background:"#E8F7F2",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}},
+      h("div",{style:{fontSize:32}},"🔒"),
+      h("div",{style:{fontSize:14,fontWeight:600,color:"#1D9E75"}},"Photo verrouillée"),
+      h("div",{style:{fontSize:12,color:"var(--text2)"}},gps?`Encore ${fmtD(d-post.radius)}`:"GPS non disponible")
+    ),
+    h("div",{style:{padding:"14px 16px"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10}},
+        h("div",{onClick:e=>{e.stopPropagation();onAuthor(post.uid);},style:{cursor:"pointer"}},h(Av,{photo:u?.photo,pseudo:u?.pseudo||"?",sz:38,hue})),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
+            h("span",{onClick:e=>{e.stopPropagation();onAuthor(post.uid);},style:{fontSize:14,fontWeight:600,cursor:"pointer",color:"var(--text)"}},u?.pseudo||"Utilisateur"),
+            h(CatBdg,{catId:post.cat,cats})
+          ),
+          h("div",{style:{fontSize:12,color:"var(--text3)",marginTop:3}},fmtDate(post.ts))
+        ),
+        own?h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:"#E1F5EE",color:"#0F6E56"}},inZone?"✓ Ici":fmtD(d))
+          :h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:inZone?"#E1F5EE":"var(--bg2)",color:inZone?"#0F6E56":"var(--text2)"}},gps?(inZone?`✓ ${fmtD(d)}`:fmtD(d)):"—"),
+        own&&h("div",{style:{position:"relative"},onClick:e=>e.stopPropagation()},
+          h("button",{onClick:()=>setMenu(v=>!v),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:"2px 6px",lineHeight:1}},"⋯"),
+          menu&&h("div",{style:{position:"absolute",right:0,top:"100%",marginTop:4,background:"#fff",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",zIndex:30,minWidth:160,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}},
+            h("button",{onClick:()=>{setEd(true);setEdTxt(post.text||"");setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"✏️ Modifier le texte"),
+            h("button",{onClick:()=>{setChangeCat(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"🏷 Changer de catégorie"),
+            h("button",{onClick:()=>{setDel(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🗑 Supprimer")
+          )
+        )
+      ),
+      del&&h("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}},
+        h("span",{style:{fontSize:13,flex:1,color:"var(--text2)"}},"Supprimer ce post ?"),
+        h("button",{onClick:()=>{onDelete(post.id);setDel(false);},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--red)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Oui"),
+        h("button",{onClick:()=>setDel(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Non")
+      ),
+      changeCat&&h("div",{style:{padding:"8px 0"}},
+        h("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:8}},"Changer de catégorie :"),
+        h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          h("button",{onClick:()=>{patchPost(post.id,{cat:null});setChangeCat(false);},style:{padding:"5px 10px",fontSize:12,borderRadius:20,cursor:"pointer",background:!post.cat?"var(--bg2)":"transparent",border:!post.cat?"0.5px solid var(--border2)":"0.5px solid var(--border)",color:"var(--text)"}},"Aucune"),
+          cats.map(c=>h("button",{key:c.id,onClick:()=>{patchPost(post.id,{cat:c.id});setChangeCat(false);},style:{padding:"5px 10px",fontSize:12,borderRadius:20,cursor:"pointer",background:post.cat===c.id?"var(--bg2)":"transparent",border:post.cat===c.id?"0.5px solid var(--border2)":"0.5px solid var(--border)",color:"var(--text)"}},`${c.emoji} ${c.name}`))
+        ),
+        h("button",{onClick:()=>setChangeCat(false),style:{marginTop:8,fontSize:12,color:"var(--text3)",background:"transparent",border:"none",cursor:"pointer",padding:0}},"Annuler")
+      ),
+      ed&&h("div",null,
+        h("textarea",{value:edTxt,onChange:e=>setEdTxt(e.target.value),style:{width:"100%",minHeight:60,padding:10,fontSize:13,lineHeight:1.5,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"var(--bg2)",color:"var(--text)",fontFamily:"inherit",resize:"none",boxSizing:"border-box"}}),
+        h("div",{style:{display:"flex",gap:8,marginTop:6}},
+          h("button",{onClick:()=>{onEdit(post.id,edTxt);setEd(false);},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Sauvegarder"),
+          h("button",{onClick:()=>setEd(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler")
+        )
+      ),
+      !ed&&!del&&!changeCat&&(vis
+        ?h("div",null,
+            post.text&&h("p",{style:{fontSize:14,margin:"0 0 10px",lineHeight:1.65}},post.text),
+            h("button",{onClick:()=>toggleLike(post.id,myUid,liked),style:{background:"transparent",border:"none",cursor:"pointer",padding:0,fontSize:13,color:liked?"#E24B4A":"var(--text3)",display:"flex",alignItems:"center",gap:4}},
+              h("span",{style:{fontSize:15}},liked?"❤️":"🤍"),likeCount)
+          )
+        :h("div",null,
+            h("div",{style:{display:"flex",flexDirection:"column",gap:5,marginBottom:6}},[88,70,50].map(w=>h("div",{key:w,style:{height:10,background:"var(--bg2)",borderRadius:4,width:w+"%"}}))),
+            h("div",{style:{fontSize:12,color:"var(--text2)"}},gps?`🔒 Encore ${fmtD(d-post.radius)} pour débloquer`:"🔒 Activez le GPS pour débloquer")
+          )
+      )
+    )
+  );
+}
+
+// ── PHOTO SCREEN ──────────────────────────────────────────
+function PhotoScreen({post,myUid,gps,users,onBack}){
+  const vis=canSee(post,myUid,gps);
+  const u=users[post.uid];
+  return h("div",null,
+    h("button",{onClick:onBack,style:{margin:"16px 16px 10px",background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0,display:"block"}},"← Retour"),
+    vis&&post.photo?h("img",{src:post.photo,style:{width:"100%",display:"block",background:"var(--bg2)"}})
+      :h("div",{style:{margin:"0 16px",height:200,background:"var(--bg2)",borderRadius:"var(--rl)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8}},
+          h("div",{style:{fontSize:28}},"🔒"),h("div",{style:{fontSize:13,color:"var(--text2)"}},"Hors zone")),
+    h("div",{style:{padding:"14px 16px"}},
+      post.text&&h("p",{style:{fontSize:15,margin:"0 0 8px",lineHeight:1.65}},post.text),
+      h("div",{style:{fontSize:12,color:"var(--text3)"}},u?.pseudo||"Utilisateur"," · ",fmtDate(post.ts))
+    )
+  );
+}
+
+// ── CROP TOOL ─────────────────────────────────────────────
+const FORMATS=[{name:"Carré",w:1,h:1,label:"1:1"},{name:"Paysage",w:4,h:3,label:"4:3"},{name:"Cinéma",w:16,h:9,label:"16:9"},{name:"Portrait",w:4,h:5,label:"4:5"},{name:"Story",w:9,h:16,label:"9:16"}];
+function CropTool({src,onConfirm,onCancel}){
+  const [fmt,setFmt]=useState(FORMATS[0]);
+  const [pos,setPos]=useState({x:50,y:50});
+  const imgRef=useRef(null);const canvasRef=useRef(null);const dragRef=useRef(null);const ctnRef=useRef(null);
+  const ratio=fmt.w/fmt.h;
+  const handleMD=e=>{e.preventDefault();dragRef.current={sx:e.clientX,sy:e.clientY,px:pos.x,py:pos.y};};
+  const handleMM=useCallback(e=>{if(!dragRef.current||!ctnRef.current)return;const r=ctnRef.current.getBoundingClientRect();const dx=(e.clientX-dragRef.current.sx)/r.width*100;const dy=(e.clientY-dragRef.current.sy)/r.height*100;setPos({x:Math.max(0,Math.min(100,dragRef.current.px-dx)),y:Math.max(0,Math.min(100,dragRef.current.py-dy))});},[]);
+  const handleMU=()=>{dragRef.current=null;};
+  useEffect(()=>{window.addEventListener('mousemove',handleMM);window.addEventListener('mouseup',handleMU);return()=>{window.removeEventListener('mousemove',handleMM);window.removeEventListener('mouseup',handleMU);};},[handleMM]);
+  const confirm=()=>{const img=imgRef.current;if(!img)return;const nW=img.naturalWidth,nH=img.naturalHeight;const iR=nW/nH;let cW,cH;if(iR>ratio){cH=nH;cW=cH*ratio;}else{cW=nW;cH=cW/ratio;}const mX=nW-cW,mY=nH-cH;const cX=Math.max(0,Math.min(mX,(nW-cW)*pos.x/100));const cY=Math.max(0,Math.min(mY,(nH-cH)*pos.y/100));const oW=800,oH=Math.round(oW/ratio);const cv=canvasRef.current;cv.width=oW;cv.height=oH;cv.getContext('2d').drawImage(img,cX,cY,cW,cH,0,0,oW,oH);onConfirm(cv.toDataURL('image/jpeg',0.88));};
+  return h("div",null,
+    h("img",{ref:imgRef,src,style:{display:"none"},crossOrigin:"anonymous"}),
+    h("canvas",{ref:canvasRef,style:{display:"none"}}),
+    h("div",{style:{fontSize:13,fontWeight:500,marginBottom:10}},"Format"),
+    h("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},FORMATS.map(f=>h("button",{key:f.name,onClick:()=>{setFmt(f);setPos({x:50,y:50});},style:{padding:"6px 10px",fontSize:12,borderRadius:"var(--r)",cursor:"pointer",background:fmt.name===f.name?"var(--text)":"var(--bg2)",color:fmt.name===f.name?"#fff":"var(--text)",border:"0.5px solid var(--border)",fontWeight:fmt.name===f.name?500:400}},h("div",{style:{fontSize:11,fontWeight:500}},f.label),h("div",{style:{fontSize:10,opacity:0.7,marginTop:1}},f.name)))),
+    h("div",{ref:ctnRef,style:{width:"100%",aspectRatio:`${fmt.w}/${fmt.h}`,overflow:"hidden",borderRadius:"var(--r)",cursor:"grab",userSelect:"none",background:"#000"},onMouseDown:handleMD,onTouchStart:e=>{const t=e.touches[0];dragRef.current={sx:t.clientX,sy:t.clientY,px:pos.x,py:pos.y};},onTouchMove:e=>{if(!dragRef.current||!ctnRef.current)return;const t=e.touches[0];const r=ctnRef.current.getBoundingClientRect();const dx=(t.clientX-dragRef.current.sx)/r.width*100;const dy=(t.clientY-dragRef.current.sy)/r.height*100;setPos({x:Math.max(0,Math.min(100,dragRef.current.px-dx)),y:Math.max(0,Math.min(100,dragRef.current.py-dy))});},onTouchEnd:()=>{dragRef.current=null;}},
+      h("img",{src,draggable:false,style:{width:"100%",height:"100%",objectFit:"cover",display:"block",objectPosition:`${pos.x}% ${pos.y}%`,pointerEvents:"none"}})
+    ),
+    h("div",{style:{fontSize:11,color:"var(--text3)",textAlign:"center",marginTop:6,marginBottom:12}},"Glisse pour repositionner"),
+    h("div",{style:{display:"flex",gap:8}},
+      h("button",{onClick:onCancel,style:{flex:1,padding:"10px",fontSize:13,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler"),
+      h("button",{onClick:confirm,style:{flex:2,padding:"10px",fontSize:13,fontWeight:500,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Appliquer")
+    )
+  );
+}
+
+// ── RADIUS PREVIEW MAP ─────────────────────────────────────
+function RadiusMap({gps,radius,height=140,fullscreen=false}){
+  const mapRef=useRef(null);
+  const leafRef=useRef(null);
+  const circleRef=useRef(null);
+  const userMovedRef=useRef(false); // true si l'user a bougé la carte manuellement
+
+  useEffect(()=>{
+    if(!mapRef.current||leafRef.current||!gps)return;
+    const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
+    const opts=fullscreen
+      ?{zoomControl:true,attributionControl:false,dragging:true,scrollWheelZoom:true,doubleClickZoom:true,touchZoom:true}
+      :{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false};
+    const map=L.map(mapRef.current,opts).setView([gps.lat,gps.lng],zoom);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
+    if(!fullscreen){
+      const icon=L.divIcon({className:'',html:`<svg width="20" height="26" viewBox="0 0 20 26"><path d="M10 26C10 26 1 16 1 9A9 9 0 1 1 19 9C19 16 10 26 10 26Z" fill="#1D9E75" stroke="white" stroke-width="1.5"/><circle cx="10" cy="9" r="3.5" fill="white"/></svg>`,iconSize:[20,26],iconAnchor:[10,26]});
+      L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
+    } else {
+      // Sur le plein écran, marqueur plus visible
+      const icon=L.divIcon({className:'',html:`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`,iconSize:[28,38],iconAnchor:[14,38]});
+      L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
+      // Détecter si l'user bouge la carte
+      map.on('dragstart zoomstart',()=>{userMovedRef.current=true;});
+    }
+    circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.12}).addTo(map);
+    leafRef.current=map;
+    return()=>{map.remove();leafRef.current=null;circleRef.current=null;userMovedRef.current=false;};
+  },[gps?.lat,gps?.lng]);
+
+  useEffect(()=>{
+    if(!leafRef.current||!circleRef.current||!gps)return;
+    circleRef.current.setRadius(radius);
+    // En mode fullscreen : recentre seulement si l'user n'a pas bougé
+    // En mode normal : toujours recentrer
+    if(!fullscreen||!userMovedRef.current){
+      const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
+      leafRef.current.setView([gps.lat,gps.lng],zoom,{animate:true,duration:0.4});
+    }
+    // Reset le flag quand le slider change (l'user veut voir sa nouvelle zone)
+    if(fullscreen) userMovedRef.current=false;
+  },[radius]);
+
+  const h_style=fullscreen
+    ?{width:"100%",height:typeof height==="number"?height+"px":height,display:"block"}
+    :{height,borderRadius:"var(--rl)",overflow:"hidden",border:"0.5px solid var(--border)"};
+  if(!gps)return h("div",{style:{...h_style,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"GPS requis");
+  return h("div",{ref:mapRef,style:h_style});
+}
+// ── BEREAL CAMERA ──────────────────────────────────────────
+function BeRealCamera({onCapture,onCancel,gps}){
+  const [status,setStatus]=useState("init"); // init | loading | ready | countdown | error
+  const [countdown,setCountdown]=useState(3);
+  const [hasFront,setHasFront]=useState(false);
+  const [errMsg,setErrMsg]=useState("");
+  const backStreamRef=useRef(null);
+  const frontStreamRef=useRef(null);
+  const backVideoRef=useRef(null);
+  const frontVideoRef=useRef(null);
+  const frontPreviewRef=useRef(null);
+
+  const stopAll=()=>{
+    backStreamRef.current?.getTracks().forEach(t=>t.stop());
+    frontStreamRef.current?.getTracks().forEach(t=>t.stop());
+  };
+
+  // Callback refs — assignent srcObject dès que le DOM est prêt
+  const setBackRef=useCallback(el=>{
+    backVideoRef.current=el;
+    if(el&&backStreamRef.current){
+      el.srcObject=backStreamRef.current;
+      el.play().catch(()=>{});
+    }
+  },[]);
+
+  const setFrontRef=useCallback(el=>{
+    frontVideoRef.current=el;
+    if(el&&frontStreamRef.current){
+      el.srcObject=frontStreamRef.current;
+      el.play().catch(()=>{});
+    }
+  },[]);
+
+  const setFrontPreviewRef=useCallback(el=>{
+    frontPreviewRef.current=el;
+    if(el&&frontStreamRef.current){
+      el.srcObject=frontStreamRef.current;
+      el.play().catch(()=>{});
+    }
+  },[]);
+
+  useEffect(()=>{
+    let alive=true;
+    const start=async()=>{
+      setStatus("loading");
+      // Caméra arrière
+      let backStream=null;
+      const constraints=[
+        {video:{facingMode:{exact:"environment"}},audio:false},
+        {video:{facingMode:"environment"},audio:false},
+        {video:true,audio:false}
+      ];
+      for(const c of constraints){
+        try{backStream=await navigator.mediaDevices.getUserMedia(c);break;}
+        catch(e){continue;}
+      }
+      if(!backStream||!alive){
+        if(alive)setErrMsg("Caméra non disponible. Vérifie les autorisations dans Réglages > Safari > Caméra.");
+        if(alive)setStatus("error");
+        return;
+      }
+      backStreamRef.current=backStream;
+      // Assigner au video si déjà monté
+      if(backVideoRef.current){
+        backVideoRef.current.srcObject=backStream;
+        backVideoRef.current.play().catch(()=>{});
+      }
+      // Caméra avant (optionnelle)
+      try{
+        const f=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});
+        if(!alive){f.getTracks().forEach(t=>t.stop());return;}
+        frontStreamRef.current=f;
+        if(frontVideoRef.current){frontVideoRef.current.srcObject=f;frontVideoRef.current.play().catch(()=>{});}
+        if(frontPreviewRef.current){frontPreviewRef.current.srcObject=f;frontPreviewRef.current.play().catch(()=>{});}
+        setHasFront(true);
+      }catch(e){/* caméra avant non dispo, on continue */}
+      if(alive)setStatus("ready");
+    };
+    start();
+    return()=>{alive=false;stopAll();};
+  },[]);
+
+  const doCapture=()=>{
+    setStatus("countdown");
+    let c=3;setCountdown(c);
+    const iv=setInterval(()=>{
+      c--;
+      if(c>0){setCountdown(c);}
+      else{
+        clearInterval(iv);
+        setStatus("ready");
+        doShoot();
+      }
+    },1000);
+  };
+
+  const doShoot=()=>{
+    const back=backVideoRef.current;
+    if(!back||back.videoWidth===0){
+      // Fallback: essaie quand même
+      setTimeout(()=>{
+        const b=backVideoRef.current;
+        if(!b)return;
+        shoot(b);
+      },500);
+      return;
+    }
+    shoot(back);
+  };
+
+  const shoot=(back)=>{
+    const bW=back.videoWidth||640,bH=back.videoHeight||480;
+    const cv=document.createElement('canvas');cv.width=bW;cv.height=bH;
+    const ctx=cv.getContext('2d');
+    ctx.drawImage(back,0,0,bW,bH);
+    const front=frontVideoRef.current;
+    if(hasFront&&front&&front.videoWidth>0){
+      const fW=front.videoWidth,fH=front.videoHeight;
+      const pw=Math.round(bW*0.30),ph=Math.round(fH/fW*pw);
+      const px=bW-pw-16,py=bH-ph-16,r=12;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(px+r,py);ctx.arcTo(px+pw,py,px+pw,py+ph,r);
+      ctx.arcTo(px+pw,py+ph,px,py+ph,r);ctx.arcTo(px,py+ph,px,py,r);
+      ctx.arcTo(px,py,px+pw,py,r);ctx.closePath();ctx.clip();
+      ctx.drawImage(front,0,0,fW,fH,px,py,pw,ph);
+      ctx.restore();
+      ctx.strokeStyle='#fff';ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.moveTo(px+r,py);ctx.arcTo(px+pw,py,px+pw,py+ph,r);
+      ctx.arcTo(px+pw,py+ph,px,py+ph,r);ctx.arcTo(px,py+ph,px,py,r);
+      ctx.arcTo(px,py,px+pw,py,r);ctx.closePath();ctx.stroke();
+    }
+    onCapture(cv.toDataURL('image/jpeg',0.85),gps);
+  };
+
+  // Écran d'erreur
+  if(status==="error") return h("div",{style:{
+    position:"fixed",inset:0,background:"#111",zIndex:200,
+    display:"flex",flexDirection:"column",alignItems:"center",
+    justifyContent:"center",padding:32,textAlign:"center"
+  }},
+    h("div",{style:{fontSize:48,marginBottom:16}},"📷"),
+    h("div",{style:{color:"#fff",fontSize:15,lineHeight:1.7,marginBottom:24}},errMsg),
+    h("div",{style:{fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:24}},"Réglages → Safari → Caméra → Autoriser"),
+    h("button",{onClick:onCancel,style:{padding:"12px 28px",background:"#fff",border:"none",borderRadius:24,fontSize:14,fontWeight:600,cursor:"pointer"}},"Retour")
+  );
+
+  // Overlay caméra
+  return h("div",{style:{position:"fixed",inset:0,background:"#000",zIndex:200,overflow:"hidden"}},
+    // Vidéo arrière plein écran
+    h("video",{
+      ref:setBackRef,
+      style:{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"},
+      playsInline:true,muted:true,autoPlay:true
+    }),
+    // Vidéo avant cachée (pour capture canvas)
+    h("video",{
+      ref:setFrontRef,
+      style:{position:"absolute",width:1,height:1,opacity:0,pointerEvents:"none"},
+      playsInline:true,muted:true,autoPlay:true
+    }),
+    // Preview caméra avant
+    hasFront&&h("div",{style:{
+      position:"absolute",bottom:130,right:16,
+      width:90,height:120,borderRadius:14,
+      overflow:"hidden",border:"3px solid #fff",
+      boxShadow:"0 4px 20px rgba(0,0,0,0.6)"
+    }},
+      h("video",{
+        ref:setFrontPreviewRef,
+        style:{width:"100%",height:"100%",objectFit:"cover",transform:"scaleX(-1)"},
+        playsInline:true,muted:true,autoPlay:true
+      })
+    ),
+    // Décompte
+    status==="countdown"&&h("div",{style:{
+      position:"absolute",inset:0,display:"flex",
+      alignItems:"center",justifyContent:"center",
+      fontSize:120,color:"#fff",fontWeight:800,
+      textShadow:"0 4px 24px rgba(0,0,0,0.7)"
+    }},countdown),
+    // Loading
+    status==="loading"&&h("div",{style:{
+      position:"absolute",inset:0,display:"flex",
+      alignItems:"center",justifyContent:"center",
+      flexDirection:"column",gap:12
+    }},
+      h("div",{style:{color:"#fff",fontSize:14}},"Initialisation de la caméra…")
+    ),
+    // Contrôles bas
+    h("div",{style:{
+      position:"absolute",bottom:40,left:0,right:0,
+      display:"flex",alignItems:"center",justifyContent:"center",gap:40
+    }},
+      h("button",{onClick:()=>{stopAll();onCancel();},style:{
+        padding:"11px 22px",background:"rgba(255,255,255,0.2)",
+        border:"1.5px solid rgba(255,255,255,0.5)",
+        borderRadius:24,color:"#fff",fontSize:14,cursor:"pointer"
+      }},"Annuler"),
+      status==="ready"&&h("button",{onClick:doCapture,style:{
+        width:72,height:72,borderRadius:"50%",background:"#fff",
+        border:"5px solid rgba(255,255,255,0.5)",cursor:"pointer",flexShrink:0,
+        boxShadow:"0 4px 20px rgba(0,0,0,0.4)"
+      }})
+    ),
+    // Label haut
+    h("div",{style:{
+      position:"absolute",top:50,left:0,right:0,
+      textAlign:"center",color:"rgba(255,255,255,0.9)",
+      fontSize:13,fontWeight:500
+    }},hasFront?"📸 Avant + Arrière":"📸 Photo")
+  );
+}
+
+// ── EXIF GPS MANUEL ───────────────────────────────────────
+function readExifGpsManual(file){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const buf=e.target.result;
+        const view=new DataView(buf);
+        // Vérifie que c'est bien un JPEG
+        if(view.getUint16(0)!==0xFFD8){resolve(null);return;}
+        let offset=2;
+        while(offset<buf.byteLength-2){
+          const marker=view.getUint16(offset);
+          offset+=2;
+          if(marker===0xFFE1){// APP1 = EXIF
+            const len=view.getUint16(offset);
+            const exifStr=String.fromCharCode(...new Uint8Array(buf,offset+2,4));
+            if(exifStr==="Exif"){
+              const tiffStart=offset+8;
+              const endian=view.getUint16(tiffStart);
+              const le=endian===0x4949;
+              const getU16=(o)=>view.getUint16(tiffStart+o,le);
+              const getU32=(o)=>view.getUint32(tiffStart+o,le);
+              // IFD0
+              const ifd0=getU32(4);
+              const ifd0Count=getU16(ifd0);
+              let gpsOffset=null;
+              for(let i=0;i<ifd0Count;i++){
+                const tag=getU16(ifd0+2+i*12);
+                if(tag===0x8825){gpsOffset=getU32(ifd0+2+i*12+8);break;}
+              }
+              if(gpsOffset!==null){
+                const gpsCount=getU16(gpsOffset);
+                let lat=null,lng=null,latRef="N",lngRef="E";
+                for(let i=0;i<gpsCount;i++){
+                  const tag=getU16(gpsOffset+2+i*12);
+                  const valOff=getU32(gpsOffset+2+i*12+8);
+                  if(tag===1) latRef=String.fromCharCode(view.getUint8(tiffStart+valOff));
+                  if(tag===3) lngRef=String.fromCharCode(view.getUint8(tiffStart+valOff));
+                  if(tag===2||tag===4){
+                    const toD=(off)=>{
+                      const d=getU32(off)/getU32(off+4);
+                      const m=getU32(off+8)/getU32(off+12);
+                      const s=getU32(off+16)/getU32(off+20);
+                      return d+m/60+s/3600;
+                    };
+                    if(tag===2) lat=toD(tiffStart+valOff);
+                    if(tag===4) lng=toD(tiffStart+valOff);
+                  }
+                }
+                if(lat!==null&&lng!==null){
+                  resolve({lat:latRef==="S"?-lat:lat,lng:lngRef==="W"?-lng:lng});
+                  return;
+                }
+              }
+            }
+            offset+=len;
+          } else if((marker&0xFF00)===0xFF00){
+            offset+=view.getUint16(offset);
+          } else break;
+        }
+        resolve(null);
+      }catch(e){resolve(null);}
+    };
+    reader.onerror=()=>resolve(null);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── CARTE ZONE UNIQUE (pour l'étape de définition du rayon) ─
+function ZoneMapSingle({gps,radius}){
+  const mapRef=useRef(null);
+  const leafRef=useRef(null);
+  const circleRef=useRef(null);
+
+  useEffect(()=>{
+    if(!mapRef.current||leafRef.current||!gps)return;
+    // Petit délai pour que le DOM ait sa hauteur finale sur iOS
+    const init=()=>{
+      if(!mapRef.current)return;
+      const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView([gps.lat,gps.lng],15);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
+      L.control.zoom({position:'topright'}).addTo(map);
+      const icon=L.divIcon({className:'',html:`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`,iconSize:[28,38],iconAnchor:[14,38]});
+      L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
+      circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.13}).addTo(map);
+      leafRef.current=map;
+      // Force recalcul taille après rendu
+      setTimeout(()=>{map.invalidateSize();},100);
+    };
+    const t=setTimeout(init,50);
+    return()=>{clearTimeout(t);if(leafRef.current){leafRef.current.remove();leafRef.current=null;circleRef.current=null;}};
+  },[gps?.lat,gps?.lng]);
+
+  useEffect(()=>{
+    if(!leafRef.current||!circleRef.current||!gps)return;
+    circleRef.current.setRadius(radius);
+    const zoom=radius<100?17:radius<250?16:radius<600?15:radius<1500?14:radius<3000?13:12;
+    leafRef.current.setView([gps.lat,gps.lng],zoom,{animate:true,duration:0.4});
+    setTimeout(()=>leafRef.current?.invalidateSize(),50);
+  },[radius]);
+
+  if(!gps) return h("div",{style:{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"var(--text3)",fontSize:14}},"⚠️ GPS non disponible");
+  return h("div",{ref:mapRef,style:{position:"absolute",inset:0}});
+}
+
+// ── PUBLICATION ───────────────────────────────────────────
+function PublishScreen({myUid,gps,cats,onBack}){
+  const [step,setStep]=useState("form"); // form | crop | zone
+  const [rawPhoto,setRawPhoto]=useState(null);
+  const [photo,setPhoto]=useState(null);
+  const [photoGps,setPhotoGps]=useState(null);
+  const [txt,setTxt]=useState("");
+  const [rad,setRad]=useState(300);
+  const [zoneConfirmed,setZoneConfirmed]=useState(false);
+  const [sel,setSel]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const fileRef=useRef(null);
+  const sC=cats.find(c=>c.id===sel);
+  const lb=sC?aLbl(sC.access):null;
+  const postGps=photoGps||gps;
+  const fR=m=>m>=1000?`${(m/1000).toFixed(1)} km`:`${m} m`;
+  // Peut aller à l'étape zone : faut au moins une photo OU du texte + GPS
+  const canGoZone=!!(txt.trim()||photo)&&!!postGps;
+  // Peut publier : contenu + GPS + zone confirmée
+  const canPost=canGoZone&&zoneConfirmed;
+
+  const handleFile=async f=>{
+    if(!f||!f.type.startsWith("image/"))return;
+    let exifGps=null;
+    try{
+      if(window.Exifr){try{const r=await window.Exifr.gps(f);if(r?.latitude&&r?.longitude)exifGps={lat:r.latitude,lng:r.longitude};}catch(e){}}
+      if(!exifGps)exifGps=await readExifGpsManual(f);
+    }catch(e){}
+    setPhotoGps(exifGps);
+    const r=new FileReader();
+    r.onload=e=>{setRawPhoto(e.target.result);setStep("crop");};
+    r.readAsDataURL(f);
+  };
+
+  const doPost=async()=>{
+    if(!canPost||saving)return;
+    setSaving(true);
+    let finalPhoto=photo;
+    if(photo){
+      const compressed=await new Promise(ok=>{const i=new Image();i.onload=()=>{const MAX=800,sc=Math.min(1,MAX/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=Math.round(i.width*sc);c.height=Math.round(i.height*sc);c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.6));};i.src=photo;});
+      finalPhoto=compressed;
+    }
+    await pushPost(myUid,{text:txt.trim(),photo:finalPhoto||null,lat:postGps.lat,lng:postGps.lng,radius:rad,cat:sel,uid:myUid});
+    setSaving(false);onBack();
+  };
+
+  const BackBtn=({onClick})=>h("button",{onClick,style:{width:40,height:40,borderRadius:12,background:"#fff",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--shadow)",flexShrink:0}},
+    h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+  );
+
+  // ── ÉTAPE RECADRAGE ──
+  if(step==="crop"&&rawPhoto) return h("div",{style:{minHeight:"100vh",background:"var(--bg3)",padding:"0 16px 40px"}},
+    h("div",{style:{paddingTop:56,display:"flex",alignItems:"center",gap:14,marginBottom:20}},
+      h(BackBtn,{onClick:()=>{setRawPhoto(null);setStep("form");}}),
+      h("span",{style:{fontSize:17,fontWeight:700}},"Recadrer la photo")
+    ),
+    h(CropTool,{src:rawPhoto,onConfirm:cropped=>{setPhoto(cropped);setStep("form");},onCancel:()=>{setRawPhoto(null);setStep("form");}})
+  );
+
+  // ── ÉTAPE 2 : ZONE ──
+  if(step==="zone"){
+    const vh=window.innerHeight;
+    return h("div",{style:{position:"fixed",inset:0,zIndex:80,maxWidth:460,margin:"0 auto",width:"100%",background:"#edecea"}},
+      // Carte avec hauteur en pixels — garantie de s'afficher
+      h(RadiusMap,{gps:postGps,radius:rad,height:vh,fullscreen:true}),
+      // Flèche retour
+      h("div",{style:{position:"absolute",top:52,left:16,zIndex:10}},
+        h(BackBtn,{onClick:()=>setStep("form")})
+      ),
+      // Badge rayon
+      h("div",{style:{position:"absolute",top:56,right:16,zIndex:10,padding:"8px 16px",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(8px)",borderRadius:20,boxShadow:"var(--shadow2)"}},
+        h("span",{style:{fontSize:16,fontWeight:700,color:"var(--green)"}},fR(rad))
+      ),
+      // Îlot flottant en bas
+      h("div",{style:{position:"absolute",bottom:32,left:16,right:16,zIndex:10,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(16px)",borderRadius:24,padding:"16px 20px 20px",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}},
+        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+          h("span",{style:{fontSize:13,fontWeight:600,color:"var(--text)"}},"Zone de visibilité"),
+          h("span",{style:{fontSize:14,fontWeight:700,color:"var(--green)"}},fR(rad))
+        ),
+        h("input",{type:"range",min:50,max:5000,step:50,value:rad,
+          onChange:e=>setRad(Number(e.target.value)),
+          style:{width:"100%",accentColor:"var(--green)",marginBottom:4}}),
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:14,fontSize:10,color:"var(--text3)"}},
+          h("span",null,"50 m"),h("span",null,"2,5 km"),h("span",null,"5 km")
+        ),
+        h("button",{onClick:()=>{setZoneConfirmed(true);setStep("form");},style:{
+          width:"100%",padding:14,fontSize:15,fontWeight:700,
+          background:"var(--green)",color:"#fff",border:"none",
+          borderRadius:14,cursor:"pointer",
+          boxShadow:"0 4px 16px rgba(29,158,117,0.4)"
+        }},"✓ Confirmer cette zone")
+      )
+    );
+  }
+
+  // ── ÉTAPE 1 : FORMULAIRE ──
+  return h("div",{style:{minHeight:"100vh",background:"var(--bg3)",display:"flex",flexDirection:"column"}},
+    // Header
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.96)",backdropFilter:"blur(12px)",borderBottom:"0.5px solid var(--border)",padding:"0 16px"}},
+      h("div",{style:{paddingTop:52,paddingBottom:14,display:"flex",alignItems:"center",gap:14}},
+        h(BackBtn,{onClick:onBack}),
+        h("span",{style:{fontSize:17,fontWeight:700,flex:1}},"Nouveau post"),
+        gps?h("span",{style:{fontSize:11,color:"var(--green)",fontWeight:500}},"📍 GPS actif")
+          :h("span",{style:{fontSize:11,color:"#BA7517"}},"⚠️ Sans GPS")
+      )
+    ),
+
+    h("div",{style:{flex:1,padding:"16px 16px 0"}},
+      // Photo
+      photo
+        ?h("div",{style:{position:"relative",marginBottom:14,borderRadius:"var(--rl)",overflow:"hidden"}},
+            h("img",{src:photo,style:{width:"100%",display:"block",aspectRatio:"4/3",objectFit:"cover"}}),
+            h("div",{style:{position:"absolute",top:10,left:10}},
+              photoGps
+                ?h("div",{style:{background:"rgba(29,158,117,0.88)",padding:"5px 11px",borderRadius:20,fontSize:12,color:"#fff",fontWeight:600}},"📍 GPS de la photo")
+                :h("div",{style:{background:"rgba(0,0,0,0.55)",padding:"5px 11px",borderRadius:20,fontSize:12,color:"#fff"}},"📍 Ta position actuelle")
+            ),
+            h("div",{style:{position:"absolute",top:10,right:10,display:"flex",gap:8}},
+              h("button",{onClick:()=>{setRawPhoto(photo);setStep("crop");},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"rgba(255,255,255,0.9)",border:"none",borderRadius:20,cursor:"pointer",color:"var(--text)"}},"Recadrer"),
+              h("button",{onClick:()=>{setPhoto(null);setRawPhoto(null);setPhotoGps(null);},style:{width:32,height:32,background:"rgba(0,0,0,0.55)",border:"none",borderRadius:"50%",cursor:"pointer",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}},"×")
+            )
+          )
+        :h("div",{style:{marginBottom:14}},
+            h("div",{onClick:()=>fileRef.current?.click(),style:{border:"2px dashed var(--border2)",borderRadius:"var(--rl)",padding:"36px 16px",textAlign:"center",cursor:"pointer",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",gap:10,boxShadow:"var(--shadow)"}},
+              h("div",{style:{width:60,height:60,borderRadius:"50%",background:"var(--gbg)",display:"flex",alignItems:"center",justifyContent:"center"}},
+                h("svg",{width:26,height:26,viewBox:"0 0 24 24",fill:"none",stroke:"var(--green)",strokeWidth:2},h("rect",{x:3,y:3,width:18,height:18,rx:2}),h("circle",{cx:12,cy:12,r:3}),h("path",{d:"M3 9h18"}))
+              ),
+              h("div",null,
+                h("div",{style:{fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:3}},"Prendre une photo"),
+                h("div",{style:{fontSize:12,color:"var(--text3)"}},"Optionnel — tu peux aussi poster du texte")
+              ),
+              h("input",{ref:fileRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+            )
+          ),
+
+      // Texte
+      h("textarea",{value:txt,onChange:e=>setTxt(e.target.value),placeholder:"Que se passe-t-il ici ?",style:{width:"100%",minHeight:80,padding:14,fontSize:14,lineHeight:1.6,border:"none",borderRadius:"var(--rl)",background:"#fff",color:"var(--text)",fontFamily:"inherit",resize:"none",boxSizing:"border-box",boxShadow:"var(--shadow)"}}),
+
+      // Catégorie
+      h("div",{style:{marginTop:14,background:"#fff",borderRadius:"var(--rl)",padding:"14px 16px",boxShadow:"var(--shadow)"}},
+        h("div",{style:{fontSize:13,fontWeight:600,marginBottom:10}},"Catégorie"),
+        h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          h("button",{onClick:()=>setSel(null),style:{padding:"6px 14px",fontSize:12,borderRadius:20,cursor:"pointer",background:!sel?"var(--gbg)":"var(--bg2)",border:"none",fontWeight:!sel?600:400,color:!sel?"var(--green)":"var(--text2)"}},"Aucune"),
+          cats.map(c=>h("button",{key:c.id,onClick:()=>setSel(sel===c.id?null:c.id),style:{padding:"6px 14px",fontSize:12,borderRadius:20,cursor:"pointer",background:sel===c.id?"var(--gbg)":"var(--bg2)",border:"none",fontWeight:sel===c.id?600:400,color:sel===c.id?"var(--green)":"var(--text2)"}},`${c.emoji} ${c.name}`))
+        ),
+        lb&&h("div",{style:{marginTop:10,fontSize:12,padding:"6px 12px",background:lb.bg,color:lb.c,borderRadius:"var(--r)",display:"inline-flex",alignItems:"center",gap:4}},`${lb.icon} Visible : ${lb.label}`)
+      ),
+
+      // Zone confirmée — badge récap
+      zoneConfirmed&&h("div",{style:{marginTop:14,background:"var(--gbg)",borderRadius:"var(--rl)",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"var(--shadow)"}},
+        h("div",null,
+          h("div",{style:{fontSize:13,fontWeight:700,color:"var(--green)"}},"✓ Zone définie"),
+          h("div",{style:{fontSize:12,color:"var(--gtxt)",marginTop:2}},`Rayon de ${fR(rad)} autour de toi`)
+        ),
+        h("button",{onClick:()=>setStep("zone"),style:{padding:"7px 14px",fontSize:12,fontWeight:600,background:"#fff",border:"none",borderRadius:20,cursor:"pointer",color:"var(--green)",boxShadow:"var(--shadow)"}},"Modifier")
+      ),
+
+      h("div",{style:{height:110}})
+    ),
+
+    // Boutons bas fixes
+    h("div",{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:460,padding:"12px 16px 28px",background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",borderTop:"0.5px solid var(--border)",zIndex:10,display:"flex",flexDirection:"column",gap:8}},
+      // Étape 1 : contenu manquant
+      !canGoZone&&h("button",{disabled:true,style:{width:"100%",padding:14,fontSize:14,fontWeight:600,background:"var(--bg2)",color:"var(--text3)",border:"none",borderRadius:"var(--rl)",cursor:"default"}},"Ajoute une photo ou du texte pour continuer"),
+      // Étape 2 : définir la zone (si contenu ok mais zone pas encore confirmée)
+      canGoZone&&!zoneConfirmed&&h("button",{onClick:()=>setStep("zone"),style:{width:"100%",padding:16,fontSize:15,fontWeight:700,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer"}},"Définir la zone →"),
+      // Étape 3 : publier (si zone confirmée)
+      canGoZone&&zoneConfirmed&&h("div",{style:{display:"flex",gap:10}},
+        h("button",{onClick:()=>setStep("zone"),style:{padding:"16px 18px",fontSize:13,fontWeight:600,background:"var(--bg2)",color:"var(--text)",border:"none",borderRadius:"var(--rl)",cursor:"pointer",whiteSpace:"nowrap"}},`📍 ${fR(rad)}`),
+        h("button",{onClick:doPost,disabled:saving,style:{flex:1,padding:16,fontSize:15,fontWeight:700,background:"var(--green)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer",boxShadow:"0 4px 20px rgba(29,158,117,0.35)"}},saving?"Publication…":"Publier 🚀")
+      )
+    )
+  );
+}
+
+// ── RECHERCHE ─────────────────────────────────────────────
+function SearchScreen({users,myUid,onGoProfile}){
+  const [q,setQ]=useState("");
+  const res=useMemo(()=>{
+    const entries=Object.entries(users).filter(([uid,u])=>uid!==myUid&&u?.pseudo);
+    if(!q.trim()) return entries.slice(0,8); // show suggestions when empty
+    const s=q.toLowerCase().trim();
+    return entries
+      .map(([uid,u])=>{
+        const pseudo=(u.pseudo||"").toLowerCase();
+        const bio=(u.bio||"").toLowerCase();
+        const ville=(u.ville||"").toLowerCase();
+        // score: starts-with = best, contains = ok
+        let score=0;
+        if(pseudo===s)score=100;
+        else if(pseudo.startsWith(s))score=80;
+        else if(pseudo.includes(s))score=60;
+        else if(bio.includes(s)||ville.includes(s))score=20;
+        return{uid,u,score};
+      })
+      .filter(x=>x.score>0)
+      .sort((a,b)=>b.score-a.score)
+      .map(({uid,u})=>[uid,u]);
+  },[q,users,myUid]);
+
+  return h("div",{style:{paddingBottom:100}},
+    // Header
+    h("div",{style:{padding:"20px 16px 12px",display:"flex",alignItems:"center",gap:12}},
+      h("div",{style:{flex:1,position:"relative"}},
+        h("div",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}},
+          h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text3)",strokeWidth:2.5},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
+        ),
+        h("input",{value:q,onChange:e=>setQ(e.target.value),placeholder:"Chercher un profil…",autoFocus:true,style:{width:"100%",padding:"12px 14px 12px 42px",fontSize:14,border:"none",borderRadius:"var(--rxl)",background:"#fff",color:"var(--text)",boxSizing:"border-box",boxShadow:"var(--shadow)"}}),
+        q&&h("button",{onClick:()=>setQ(""),style:{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"var(--bg2)",border:"none",cursor:"pointer",width:22,height:22,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"×")
+      )
+    ),
+    // Empty state
+    !q.trim()&&h("div",{style:{margin:"12px 16px 0",background:"#fff",borderRadius:"var(--rl)",padding:"40px 24px",textAlign:"center",boxShadow:"var(--shadow)"}},
+      h("div",{style:{width:64,height:64,borderRadius:"50%",background:"var(--pbg)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}},
+        h("svg",{width:28,height:28,viewBox:"0 0 24 24",fill:"none",stroke:"var(--purple)",strokeWidth:2},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
+      ),
+      h("div",{style:{fontSize:17,fontWeight:700,marginBottom:6}},"Recherche de profils"),
+      h("div",{style:{fontSize:14,color:"var(--text2)"}},"Tape un nom pour trouver quelqu'un")
+    ),
+    // No results
+    q.trim()&&res.length===0&&h("div",{style:{margin:"12px 16px 0",background:"#fff",borderRadius:"var(--rl)",padding:"32px 24px",textAlign:"center",boxShadow:"var(--shadow)"}},
+      h("div",{style:{fontSize:14,color:"var(--text2)"}},"Aucun résultat pour \"",h("strong",null,q),"\"")
+    ),
+    // Results
+    res.length>0&&h("div",{style:{padding:"0 16px",display:"flex",flexDirection:"column",gap:8}},
+      res.map(([uid,u])=>h("div",{key:uid,onClick:()=>onGoProfile(uid),style:{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"#fff",borderRadius:"var(--rl)",cursor:"pointer",boxShadow:"var(--shadow)"}},
+        h(Av,{photo:u.photo,pseudo:u.pseudo,sz:46,hue:uidHue(uid)}),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{fontSize:15,fontWeight:600,color:"var(--text)"}},u.pseudo),
+          u.bio&&h("div",{style:{fontSize:13,color:"var(--text2)",marginTop:2}},u.bio),
+          u.ville&&h("div",{style:{fontSize:12,color:"var(--text3)",marginTop:2}},
+            h("span",{style:{marginRight:4}},"📍"),u.ville
+          )
+        ),
+        h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text3)",strokeWidth:2},h("polyline",{points:"9 18 15 12 9 6"}))
+      ))
+    )
+  );
+}
+
+// ── ACCÈS CATÉGORIE ───────────────────────────────────────
+function AccessScreen({cat,myUid,users,onBack}){
+  const isPub=cat.access==="public";
+  const isPrv=cat.access==="private";
+  const isCst=cat.access&&typeof cat.access==="object";
+  const customSel=isCst?Object.keys(cat.access.custom||{}):[]; 
+  const followers=Object.entries(users).filter(([uid,u])=>uid!==myUid&&u?.following&&u.following[myUid]).map(([uid])=>uid);
+
+  const setMode=m=>{
+    const acc=m==="public"?"public":m==="private"?"private":{custom:{}};
+    saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:acc});
+  };
+  const tog=uid=>{
+    const cur={...((isCst&&cat.access.custom)||{})};
+    if(cur[uid])delete cur[uid];else cur[uid]=true;
+    saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:{custom:cur}});
+  };
+  const modes=[{v:"public",icon:"🌍",l:"Tout le monde"},{v:"custom",icon:"👥",l:"Personnalisé"},{v:"private",icon:"🔒",l:"Moi seul"}];
+
+  return h("div",{style:{padding:"0 16px",paddingBottom:40}},
+    h("button",{onClick:onBack,style:{marginTop:16,background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0,display:"block"}},"← Retour"),
+    h("div",{style:{marginTop:14,fontSize:16,fontWeight:500}},`${cat.emoji} ${cat.name}`),
+    h("p",{style:{fontSize:13,color:"var(--text2)",margin:"6px 0 16px"}},"Qui peut voir les posts de cette catégorie ?"),
+    h("div",{style:{display:"flex",gap:8,marginBottom:20}},
+      modes.map(m=>{const on=(isPub&&m.v==="public")||(isPrv&&m.v==="private")||(isCst&&m.v==="custom");
+        return h("button",{key:m.v,onClick:()=>setMode(m.v),style:{flex:1,padding:"12px 4px",fontSize:11,lineHeight:1.5,borderRadius:"var(--r)",cursor:"pointer",textAlign:"center",fontWeight:on?500:400,background:on?"var(--bg2)":"transparent",border:on?"1.5px solid var(--border3)":"0.5px solid var(--border)",color:"var(--text)"}},h("div",{style:{fontSize:18,marginBottom:4}},m.icon),m.l);
+      })
+    ),
+    isCst&&h("div",null,
+      h("p",{style:{fontSize:13,color:"var(--text2)",margin:"0 0 10px"}},followers.length===0?"Aucun abonné pour l'instant":"Sélectionne les abonnés autorisés :"),
+      h("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+        followers.map(uid=>{const u=users[uid];const chk=customSel.includes(uid);
+          return h("div",{key:uid,onClick:()=>tog(uid),style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:"var(--r)",cursor:"pointer",background:chk?"var(--bg2)":"#fff",border:chk?"0.5px solid var(--border2)":"0.5px solid var(--border)"}},
+            h(Av,{photo:u?.photo,pseudo:u?.pseudo||"?",sz:38,hue:uidHue(uid)}),
+            h("div",{style:{flex:1}},h("div",{style:{fontSize:13,fontWeight:500}},u?.pseudo||uid.slice(0,8)),h("div",{style:{fontSize:11,color:"var(--text3)"}},u?.bio||"")),
+            h("div",{style:{width:22,height:22,borderRadius:"50%",flexShrink:0,background:chk?"#1D9E7520":"transparent",border:`1.5px solid ${chk?"#1D9E75":"var(--border2)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#1D9E75",fontWeight:500}},chk?"✓":"")
+          );
+        })
+      ),
+      h("div",{style:{marginTop:14,padding:"10px 14px",background:"#E6F1FB",borderRadius:"var(--r)",fontSize:12,color:"#185FA5"}},
+        customSel.length===0?"Aucun abonné sélectionné.":`👥 ${customSel.map(uid=>users[uid]?.pseudo||uid.slice(0,6)).join(", ")} ${customSel.length>1?"pourront":"pourra"} voir.`
+      )
+    )
+  );
+}
+
+// ── CATÉGORIES ────────────────────────────────────────────
+function CatsScreen({myUid,cats,onBack,onEditAccess}){
+  const [nm,setNm]=useState("");const [emj,setEmj]=useState("📌");
+  const emojis=["📌","🏠","✈️","🎯","💼","🌿","🎵","📸","🌅","🎉","❤️","⚽","🍕","🔒"];
+  const add=()=>{if(!nm.trim())return;saveCat(myUid,"c"+Date.now(),{name:nm.trim(),emoji:emj,access:"public"});setNm("");};
+
+  return h("div",{style:{padding:"0 16px",paddingBottom:40}},
+    h("button",{onClick:onBack,style:{marginTop:16,background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0,display:"block"}},"← Retour"),
+    h("div",{style:{marginTop:14,fontSize:16,fontWeight:500}},"Mes catégories"),
+    h("p",{style:{fontSize:13,color:"var(--text2)",margin:"4px 0 16px"}},"Contrôle précisément qui voit chaque catégorie."),
+    h("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+      cats.map(cat=>{const l=aLbl(cat.access);
+        return h("div",{key:cat.id,style:{background:"#fff",border:"0.5px solid var(--border)",borderRadius:"var(--rl)",padding:"14px 16px"}},
+          h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+            h("span",{style:{fontSize:22,flexShrink:0}},cat.emoji),
+            h("div",{style:{flex:1}},h("div",{style:{fontSize:14,fontWeight:500}},cat.name),h("span",{style:{marginTop:5,display:"inline-block",fontSize:12,padding:"2px 9px",borderRadius:20,background:l.bg,color:l.c,fontWeight:500}},`${l.icon} ${l.label}`)),
+            h("div",{style:{display:"flex",gap:6}},
+              h("button",{onClick:()=>onEditAccess(cat.id),style:{padding:"6px 12px",fontSize:12,borderRadius:"var(--r)",cursor:"pointer",background:"var(--bg2)",border:"0.5px solid var(--border)",color:"var(--text)"}},"Modifier"),
+              h("button",{onClick:()=>rmCat(myUid,cat.id),style:{padding:"6px 10px",fontSize:14,borderRadius:"var(--r)",cursor:"pointer",background:"transparent",border:"0.5px solid var(--border)",color:"var(--text3)"}},"×")
+            )
+          )
+        );
+      })
+    ),
+    h("div",{style:{marginTop:14,background:"#fff",border:"0.5px solid var(--border)",borderRadius:"var(--rl)",padding:"14px 16px"}},
+      h("div",{style:{fontSize:13,fontWeight:500,marginBottom:10}},"Nouvelle catégorie"),
+      h("div",{style:{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}},emojis.map(e=>h("button",{key:e,onClick:()=>setEmj(e),style:{fontSize:15,background:emj===e?"var(--bg2)":"transparent",border:emj===e?"0.5px solid var(--border2)":"0.5px solid transparent",borderRadius:6,cursor:"pointer",padding:"4px 5px"}},e))),
+      h("div",{style:{display:"flex",gap:8}},
+        h("input",{value:nm,onChange:e=>setNm(e.target.value),placeholder:"Nom…",onKeyDown:e=>e.key==="Enter"&&add(),style:{flex:1,padding:"8px 12px",fontSize:13,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}),
+        h("button",{onClick:add,disabled:!nm.trim(),style:{padding:"8px 14px",fontSize:12,fontWeight:500,background:nm.trim()?"var(--text)":"var(--bg2)",color:nm.trim()?"#fff":"var(--text3)",border:"none",borderRadius:"var(--r)",cursor:nm.trim()?"pointer":"default"}},"Créer")
+      )
+    )
+  );
+}
+
+// ── FOLLOWERS / FOLLOWING SCREEN ─────────────────────────
+function FollowListScreen({title,uids,users,myUid,following,onGoProfile,onBack}){
+  return h("div",{style:{paddingBottom:60}},
+    h("div",{style:{padding:"0 16px"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:12,marginTop:16,marginBottom:16}},
+        h("button",{onClick:onBack,style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0}},"← Retour"),
+        h("span",{style:{fontSize:16,fontWeight:500}},title)
+      )
+    ),
+    uids.length===0&&h("div",{style:{padding:"40px 24px",textAlign:"center",color:"var(--text3)",fontSize:13}},"Aucun utilisateur ici"),
+    uids.map(uid=>{
+      const u=users[uid];if(!u)return null;
+      const hue=uidHue(uid);
+      const isF=!!(following&&following[uid]);
+      return h("div",{key:uid,style:{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:"0.5px solid var(--border)",background:"#fff",cursor:"pointer"},onClick:()=>onGoProfile(uid)},
+        h(Av,{photo:u.photo,pseudo:u.pseudo||"?",sz:44,hue}),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{fontSize:14,fontWeight:500}},u.pseudo||uid.slice(0,8)),
+          u.bio&&h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},u.bio),
+          u.ville&&h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:1}},"📍 "+u.ville)
+        ),
+        uid!==myUid&&h("button",{onClick:e=>{e.stopPropagation();toggleFollow(myUid,uid,isF);},style:{padding:"6px 14px",fontSize:12,fontWeight:500,background:isF?"var(--bg2)":hue,color:isF?"var(--text)":"#fff",border:isF?"0.5px solid var(--border2)":"none",borderRadius:20,cursor:"pointer",flexShrink:0}},isF?"Abonné":"Suivre")
+      );
+    })
+  );
+}
+
+// ── DAILY CHALLENGE + STREAK ──────────────────────────────
+// Génère une heure aléatoire reproductible pour un jour donné
+function getDailyTime(dateStr){
+  let h=0;for(const c of dateStr)h=(h*31+c.charCodeAt(0))%86400;
+  const base=8*3600;const range=14*3600; // entre 8h et 22h
+  return base+(h%range);
+}
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;}
+function nowSecs(){return Math.floor(Date.now()/1000)%86400;}
+
+function DailyBanner({myUid,gps,onPost,streak}){
+  const [secsLeft,setSecsLeft]=useState(null);
+  const [dismissed,setDismissed]=useState(false);
+  const day=todayStr();
+  const challengeTime=getDailyTime(day);
+  const WINDOW=300; // 5 minutes
+
+  useEffect(()=>{
+    const tick=()=>{
+      const now=nowSecs();
+      const diff=now-challengeTime;
+      if(diff>=0&&diff<WINDOW)setSecsLeft(WINDOW-diff);
+      else setSecsLeft(null);
+    };
+    tick();
+    const iv=setInterval(tick,1000);
+    return()=>clearInterval(iv);
+  },[]);
+
+  if(secsLeft===null||dismissed)return null;
+  const mins=Math.floor(secsLeft/60);const secs=secsLeft%60;
+
+  return h("div",{style:{position:"fixed",top:0,left:0,right:0,maxWidth:460,margin:"0 auto",zIndex:200,padding:"0 0 0 0"}},
+    h("div",{style:{background:"#1D9E75",padding:"12px 16px",display:"flex",alignItems:"center",gap:10}},
+      h("div",{style:{flex:1}},
+        h("div",{style:{fontSize:14,fontWeight:600,color:"#fff"}},"📸 Zone Moment !"),
+        h("div",{style:{fontSize:12,color:"rgba(255,255,255,0.85)",marginTop:2}},`Poste une photo dans ${mins}:${String(secs).padStart(2,'0')} pour garder ta streak 🔥`)
+      ),
+      streak>0&&h("div",{style:{fontSize:12,color:"#fff",fontWeight:500,background:"rgba(255,255,255,0.2)",padding:"4px 8px",borderRadius:12}}),
+      h("button",{onClick:()=>onPost(),style:{padding:"7px 14px",background:"#fff",border:"none",borderRadius:16,fontSize:12,fontWeight:600,color:"#1D9E75",cursor:"pointer"}},"Poster"),
+      h("button",{onClick:()=>setDismissed(true),style:{background:"transparent",border:"none",color:"rgba(255,255,255,0.7)",fontSize:18,cursor:"pointer",padding:"0 0 0 4px",lineHeight:1}},"×")
+    )
+  );
+}
+
+// Vérifie et met à jour le streak après un post
+async function checkAndUpdateStreak(myUid){
+  const day=todayStr();
+  const challengeTime=getDailyTime(day);
+  const now=nowSecs();
+  if(now-challengeTime<0||now-challengeTime>=300)return; // hors fenêtre
+  const ref=db.ref(`users/${myUid}/streak`);
+  const snap=await ref.once('value');
+  const s=snap.val()||{count:0,lastDay:""};
+  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+  const yStr=`${yesterday.getFullYear()}-${yesterday.getMonth()+1}-${yesterday.getDate()}`;
+  const newCount=s.lastDay===yStr?s.count+1:s.lastDay===day?s.count:1;
+  await ref.set({count:newCount,lastDay:day});
+}
+
+// ── PROFIL ────────────────────────────────────────────────
+function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEditAccess,onViewPhoto}){
+  const u=users[uid]||{};
+  const isSelf=uid===myUid;
+  const me=users[myUid]||{};
+  const hue=uidHue(uid);
+  const isF=!!(me.following&&me.following[uid]);
+  const isB=!!(me.blocked&&me.blocked[uid]);
+  const [opt,setOpt]=useState(false);
+  const [catFilter,setCatFilter]=useState("all");
+  const [editMode,setEditMode]=useState(false);
+  const [ePseudo,setEPseudo]=useState("");
+  const [eBio,setEBio]=useState("");
+  const [eVille,setEVille]=useState("");
+  const [ePhoto,setEPhoto]=useState(null);
+  const fileRef=useRef(null);
+
+  const mine=useMemo(()=>posts.filter(p=>p.uid===uid),[posts,uid]);
+  const photos=mine.filter(p=>p.photo);
+  const filteredPosts=catFilter==="all"?mine:catFilter==="none"?mine.filter(p=>!p.cat):mine.filter(p=>p.cat===catFilter);
+  const followers=Object.values(users).filter(u=>u?.following&&u.following[uid]).length;
+
+  const handleFile=async f=>{if(!f||!f.type.startsWith("image/"))return;setEPhoto(await compressImg(f));};
+  const saveEdit=async()=>{
+    await saveProfile(myUid,{pseudo:(ePseudo||u.pseudo||"").trim(),bio:(eBio||"").trim(),ville:(eVille||"").trim(),photo:ePhoto||u.photo||null});
+    setEditMode(false);setEPhoto(null);
+  };
+
+  if(editMode&&isSelf) return h("div",{style:{padding:"0 24px 60px",background:"#fff",minHeight:"100vh"}},
+    h("div",{style:{marginTop:16,display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}},
+      h("button",{onClick:()=>setEditMode(false),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0}},"Annuler"),
+      h("span",{style:{fontSize:15,fontWeight:500}},"Modifier le profil"),
+      h("button",{onClick:saveEdit,style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"#1D9E75",fontWeight:500,padding:0}},"Sauvegarder")
+    ),
+    h("div",{style:{display:"flex",justifyContent:"center",marginBottom:20}},
+      h("div",{style:{position:"relative",cursor:"pointer"},onClick:()=>fileRef.current?.click()},
+        (ePhoto||u.photo)?h("img",{src:ePhoto||u.photo,style:{width:88,height:88,borderRadius:"50%",objectFit:"cover",display:"block",border:"3px solid #fff",outline:"2px solid var(--border2)"}})
+          :h("div",{style:{width:88,height:88,borderRadius:"50%",background:"var(--bg2)",border:"2px dashed var(--border2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}},"📷"),
+        h("div",{style:{position:"absolute",bottom:2,right:2,width:24,height:24,borderRadius:"50%",background:"var(--text)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",border:"2px solid #fff"}},"✎"),
+        h("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+      )
+    ),
+    h("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+      h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Pseudo"),h("input",{value:ePseudo||u.pseudo||"",onChange:e=>setEPseudo(e.target.value),maxLength:24,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}})),
+      h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Bio"),h("textarea",{value:eBio||u.bio||"",onChange:e=>setEBio(e.target.value),maxLength:80,rows:2,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)",resize:"none"}})),
+      h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Ville"),h("input",{value:eVille||u.ville||"",onChange:e=>setEVille(e.target.value),maxLength:40,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}))
+    ),
+    h("button",{onClick:()=>{auth.signOut();},style:{marginTop:28,width:"100%",padding:11,fontSize:13,background:"transparent",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--red)"}},"Se déconnecter")
+  );
+
+  return h("div",{style:{paddingBottom:120,background:"var(--bg3)",minHeight:"100vh"}},
+
+    // Header
+    h("div",{style:{padding:"56px 20px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+      isSelf&&!uid
+        ?h("div",{style:{fontSize:28,fontWeight:800,letterSpacing:"-0.5px"}},"Profil")
+        :h("button",{onClick:onBack,style:{width:40,height:40,borderRadius:12,background:"#fff",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--shadow)"}},
+            h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+          ),
+      isSelf
+        ?h("div",{onClick:()=>setEditMode(true),style:{width:40,height:40,borderRadius:12,background:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--shadow)"}},
+            h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text2)",strokeWidth:2},h("circle",{cx:12,cy:12,r:3}),h("path",{d:"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"}))
+          )
+        :h("div",null)
+    ),
+
+    // Profile card
+    h("div",{style:{margin:"16px 16px 0",background:"#fff",borderRadius:"var(--rl)",padding:"20px",boxShadow:"var(--shadow)"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:16,marginBottom:20}},
+        h("div",{style:{position:"relative",flexShrink:0}},
+          h(Av,{photo:u.photo,pseudo:u.pseudo||"?",sz:72,hue}),
+          h("div",{style:{position:"absolute",bottom:0,right:0,width:24,height:24,borderRadius:"50%",background:"var(--green)",border:"2px solid #fff",display:"flex",alignItems:"center",justifyContent:"center"}},
+            h("span",{style:{fontSize:11,color:"#fff",fontWeight:700}},"Z")
+          )
+        ),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{fontSize:20,fontWeight:700,letterSpacing:"-0.3px"}},u.pseudo||"Utilisateur"),
+          u.bio&&h("div",{style:{fontSize:13,color:"var(--text2)",marginTop:4,lineHeight:1.4}},u.bio),
+          u.ville&&h("div",{style:{display:"flex",alignItems:"center",gap:4,marginTop:6,fontSize:13,color:"var(--text3)"}},
+            h("svg",{width:13,height:13,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("circle",{cx:12,cy:10,r:3}),h("path",{d:"M12 2a8 8 0 0 0-8 8c0 5.4 8 14 8 14s8-8.6 8-14a8 8 0 0 0-8-8z"})),
+            u.ville
+          )
+        )
+      ),
+      // Stats
+      h("div",{style:{display:"flex",gap:0,marginBottom:16,borderTop:"0.5px solid var(--border)",borderBottom:"0.5px solid var(--border)",padding:"14px 0"}},
+        [{v:mine.length,l:"Posts"},{v:followers,l:"Abonnés"},{v:Object.keys(me.following||{}).length,l:"Abonnements"}]
+        .map(({v,l},i)=>h("div",{key:i,style:{flex:1,textAlign:"center",borderRight:i<2?"0.5px solid var(--border)":"none"}},
+          h("div",{style:{fontSize:20,fontWeight:800}},v),
+          h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:2}},l)
+        ))
+      ),
+      // Actions
+      isSelf
+        ?h("button",{onClick:()=>setEditMode(true),style:{width:"100%",padding:"13px",fontSize:14,fontWeight:600,background:"var(--green)",color:"#fff",border:"none",borderRadius:14,cursor:"pointer"}},"Modifier le profil")
+        :isB
+          ?h("button",{onClick:()=>doUnblock(myUid,uid),style:{width:"100%",padding:"13px",fontSize:14,fontWeight:600,background:"var(--bg2)",color:"var(--text2)",border:"none",borderRadius:14,cursor:"pointer"}},"Débloquer")
+          :h("div",{style:{display:"flex",gap:8}},
+              h("button",{onClick:()=>toggleFollow(myUid,uid,isF),style:{flex:1,padding:"13px",fontSize:14,fontWeight:600,background:isF?"var(--bg2)":"var(--green)",color:isF?"var(--text)":"#fff",border:"none",borderRadius:14,cursor:"pointer"}},isF?"Abonné ✓":"Suivre"),
+              h("div",{style:{position:"relative"}},
+                h("button",{onClick:()=>setOpt(v=>!v),style:{width:48,height:48,background:"var(--bg2)",border:"none",borderRadius:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"var(--text2)"}},"⋯"),
+                opt&&h("div",{style:{position:"absolute",right:0,top:"calc(100%+6px)",marginTop:6,background:"#fff",borderRadius:"var(--r)",zIndex:20,minWidth:150,overflow:"hidden",boxShadow:"var(--shadow2)"}},
+                  h("button",{onClick:()=>{doBlock(myUid,uid);setOpt(false);},style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🚫 Bloquer"),
+                  h("button",{onClick:()=>setOpt(false),style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text2)"}},"🚩 Signaler")
+                )
+              )
+            )
+    ),
+
+    // Mes catégories (seulement pour soi)
+    isSelf&&cats.length>0&&h("div",{style:{margin:"20px 16px 0"}},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
+        h("div",{style:{fontSize:18,fontWeight:700}},"Mes catégories"),
+        h("button",{onClick:()=>onEditAccess("__cats__"),style:{fontSize:14,fontWeight:600,color:"var(--green)",background:"transparent",border:"none",cursor:"pointer"}},"Gérer")
+      ),
+      h("div",{style:{display:"flex",gap:10,overflowX:"auto",paddingBottom:4}},
+        cats.map(c=>{
+          const postCount=mine.filter(p=>p.cat===c.id).length;
+          return h("div",{key:c.id,onClick:()=>setCatFilter(catFilter===c.id?"all":c.id),style:{flexShrink:0,background:catFilter===c.id?"#fff":"#fff",borderRadius:"var(--rl)",padding:"16px 20px",minWidth:100,textAlign:"center",boxShadow:catFilter===c.id?"0 0 0 2px var(--green), var(--shadow)":"var(--shadow)",cursor:"pointer"}},
+            h("div",{style:{fontSize:28,marginBottom:8}},c.emoji),
+            h("div",{style:{fontSize:13,fontWeight:600,color:"var(--text)"}},c.name),
+            h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:2}},`${postCount} post${postCount>1?"s":""}`)
+          );
+        })
+      )
+    ),
+
+    // Posts / Carte toggle
+    h("div",{style:{margin:"20px 16px 0",background:"#fff",borderRadius:14,padding:4,display:"flex",gap:4,boxShadow:"var(--shadow)"}},
+      [{id:"posts",l:"Posts",icon:"⊞"},{id:"map",l:"Carte",icon:"🗺"}].map(tab=>
+        h("button",{key:tab.id,onClick:()=>setCatFilter(catFilter==="mapview"&&tab.id==="map"?"all":tab.id==="map"?"mapview":catFilter==="mapview"?"all":catFilter),style:{flex:1,padding:"10px",fontSize:13,fontWeight:600,background:catFilter!=="mapview"&&tab.id==="posts"||catFilter==="mapview"&&tab.id==="map"?"var(--bg3)":"transparent",color:"var(--text)",border:"none",borderRadius:10,cursor:"pointer"}},
+          `${tab.icon} ${tab.l}`
+        )
+      )
+    ),
+
+    // Map view
+    catFilter==="mapview"&&h("div",{style:{margin:"12px 16px 0",borderRadius:"var(--rl)",overflow:"hidden",boxShadow:"var(--shadow)"}},
+      h(ZoneMap,{posts:mine,gps,myUid,onPostClick:p=>onViewPhoto(p),users,showGpsPin:isSelf,showControls:false})
+    ),
+
+    // Photos grid
+    catFilter!=="mapview"&&photos.length>0&&h("div",{style:{margin:"12px 16px 0"}},
+      h("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:4}},
+        photos.filter(p=>catFilter==="all"||p.cat===catFilter).map(p=>{const vis=canSee(p,myUid,gps);
+          return h("div",{key:p.id,onClick:()=>onViewPhoto(p),style:{aspectRatio:"1",overflow:"hidden",background:"var(--bg2)",cursor:"pointer",borderRadius:"var(--r)"}},
+            vis?h("img",{src:p.photo,style:{width:"100%",height:"100%",objectFit:"cover",display:"block"}}):h("div",{style:{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,background:hue+"10"}},"🔒")
+          );
+        })
+      )
+    ),
+
+    // Text posts
+    catFilter!=="mapview"&&h("div",{style:{marginTop:12}},
+      filteredPosts.filter(p=>!p.photo).length===0&&photos.length>0?null
+      :filteredPosts.filter(p=>!p.photo).map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats,users,onAuthor:()=>{},onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id),onViewPhoto}))
+    ),
+
+    // Abonnements (seulement soi)
+    isSelf&&Object.keys(me.following||{}).length>0&&h("div",{style:{margin:"20px 16px 0",background:"#fff",borderRadius:"var(--rl)",padding:"16px",boxShadow:"var(--shadow)"}},
+      h("div",{style:{fontSize:15,fontWeight:700,marginBottom:12}},`Abonnements (${Object.keys(me.following||{}).length})`),
+      Object.keys(me.following||{}).map(fuid=>{const fu=users[fuid];if(!fu)return null;
+        return h("div",{key:fuid,style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
+          h("div",{onClick:()=>onGoProfile(fuid),style:{cursor:"pointer"}},h(Av,{photo:fu.photo,pseudo:fu.pseudo||"?",sz:40,hue:uidHue(fuid)})),
+          h("div",{style:{flex:1}},h("div",{style:{fontSize:14,fontWeight:600,cursor:"pointer"},onClick:()=>onGoProfile(fuid)},fu.pseudo||fuid.slice(0,8)),h("div",{style:{fontSize:12,color:"var(--text3)"}},fu.bio||"")),
+          h("button",{onClick:()=>toggleFollow(myUid,fuid,true),style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--bg2)",border:"none",borderRadius:20,cursor:"pointer",color:"var(--text2)",whiteSpace:"nowrap"}},"Se désabonner")
+        );
+      })
+    )
+  );
+}
+
+// ── APP PRINCIPALE ────────────────────────────────────────
+function App(){
+  const [phase,setPhase]=useState("loading"); // loading | welcome | google | setup | gps | app
+  const [authUser,setAuthUser]=useState(null);
+  const [users,setUsers]=useState({});
+  const [posts,setPosts]=useState([]);
+  const [myCats,setMyCats]=useState([]);
+  const [gps,setGps]=useState(null);
+  const [stack,setStack]=useState([{id:"feed"}]);
+  const [mapPin,setMapPin]=useState(false);
+  const [signLoading,setSignLoading]=useState(false);
+  const [signError,setSignError]=useState(false);
+
+  const push=s=>setStack(p=>[...p,s]);
+  const pop=()=>setStack(p=>p.length>1?p.slice(0,-1):p);
+  const goRoot=id=>{setStack([{id}]);setMapPin(false);};
+  const cur=stack[stack.length-1];
+  const isRoot=stack.length===1;
+  const activeTab=isRoot?cur.id:null;
+
+  // Auth listener
+  useEffect(()=>{
+    return auth.onAuthStateChanged(async user=>{
+      if(!user){setAuthUser(null);setPhase("welcome");return;}
+      setAuthUser(user);
+      const snap=await db.ref('users/'+user.uid).once('value');
+      if(!snap.exists()){setPhase("setup");return;}
+      setPhase("gps");
+    });
+  },[]);
+
+  // DB listeners
+  useEffect(()=>{
+    if(!authUser)return;
+    const pRef=db.ref('posts');
+    const uRef=db.ref('users');
+    const cRef=db.ref('categories/'+authUser.uid);
+    const onP=snap=>{
+      const d=snap.val()||{};
+      const arr=Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>b.ts-a.ts);
+      setPosts(arr);
+    };
+    const onU=snap=>setUsers(snap.val()||{});
+    const onC=snap=>{const d=snap.val()||{};setMyCats(Object.entries(d).map(([id,v])=>({id,...v})));};
+    pRef.on('value',onP);uRef.on('value',onU);cRef.on('value',onC);
+    return()=>{pRef.off('value',onP);uRef.off('value',onU);cRef.off('value',onC);};
+  },[authUser]);
+
+  // GPS
+  useEffect(()=>{
+    if(phase!=="app"&&phase!=="gps")return;
+    if(!navigator.geolocation){if(phase==="gps")setPhase("app");return;}
+    const wid=navigator.geolocation.watchPosition(
+      pos=>{setGps({lat:pos.coords.latitude,lng:pos.coords.longitude});if(phase==="gps")setPhase("app");},
+      ()=>{if(phase==="gps")setPhase("app");},
+      {enableHighAccuracy:true,maximumAge:15000,timeout:20000}
+    );
+    return()=>navigator.geolocation.clearWatch(wid);
+  },[phase]);
+
+  const signIn=async()=>{
+    setSignLoading(true);setSignError(false);
+    try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}
+    catch(e){setSignError(true);setSignLoading(false);}
+  };
+
+  // ── Phases pré-app ──
+  if(phase==="loading") return h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#fff"}},
+    h("div",{style:{textAlign:"center"}},
+      h("div",{style:{width:56,height:56,borderRadius:14,background:"#1D9E75",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}},h("span",{style:{fontSize:24,color:"#fff",fontWeight:600}},"Z")),
+      h("div",{style:{fontSize:13,color:"var(--text3)"}},"Chargement…")
+    )
+  );
+  if(phase==="welcome") return h(Welcome,{onStart:()=>setPhase("google")});
+  if(phase==="google") return h(GoogleSignIn,{onSign:signIn,loading:signLoading,error:signError});
+  if(phase==="setup") return h(ProfileSetup,{uid:authUser.uid,onDone:()=>setPhase("gps")});
+  if(phase==="gps") return h(GpsScreen,{onDone:()=>setPhase("app")});
+
+  // ── App principale ──
+  const myUid=authUser.uid;
+  const myBlocked=Object.keys(users[myUid]?.blocked||{});
+  const visiblePosts=posts.filter(p=>!myBlocked.includes(p.uid));
+  const unlockedCount=visiblePosts.filter(p=>canSee(p,myUid,gps)).length;
+  const isMapFull=cur.id==="map"&&isRoot;
+  const slideClass=stack.length>1?"s-in":"s-back";
+
+  // Tab icons SVG
+  const TabIcon=({id,active})=>{
+    const c=active?"var(--green)":"var(--text3)";
+    const w=2;
+    if(id==="feed") return h("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none",stroke:c,strokeWidth:w},h("rect",{x:3,y:3,width:7,height:7,rx:1}),h("rect",{x:14,y:3,width:7,height:7,rx:1}),h("rect",{x:3,y:14,width:7,height:7,rx:1}),h("rect",{x:14,y:14,width:7,height:7,rx:1}));
+    if(id==="map") return h("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none",stroke:c,strokeWidth:w},h("polygon",{points:"1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"}),h("line",{x1:8,y1:2,x2:8,y2:18}),h("line",{x1:16,y1:6,x2:16,y2:22}));
+    if(id==="search") return h("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none",stroke:c,strokeWidth:w},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}));
+    if(id==="profile") return h("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none",stroke:c,strokeWidth:w},h("path",{d:"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"}),h("circle",{cx:12,cy:7,r:4}));
+    return null;
+  };
+
+  const tabs=[["feed","Feed"],["map","Carte"],["search","Recherche"],["profile","Profil"]];
+  const isPublish=cur.id==="publish";
+  const showFAB=(cur.id==="feed"||cur.id==="map")&&isRoot;
+
+  // Floating tab bar
+  const TabBar=()=>h("div",{style:{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:428,zIndex:50}},
+    h("div",{style:{background:"rgba(255,255,255,0.96)",backdropFilter:"blur(20px)",borderRadius:"var(--rxl)",boxShadow:"0 8px 32px rgba(0,0,0,0.12)",padding:"10px 8px",display:"flex",alignItems:"center"}},
+      tabs.map(([k,l])=>h("button",{key:k,onClick:()=>goRoot(k),style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"6px 4px",border:"none",background:"transparent",cursor:"pointer"}},
+        h(TabIcon,{id:k,active:activeTab===k}),
+        h("span",{style:{fontSize:10,fontWeight:activeTab===k?600:400,color:activeTab===k?"var(--green)":"var(--text3)"}},l)
+      ))
+    )
+  );
+
+  return h("div",{style:{minHeight:"100vh",background:"var(--bg3)"}},
+
+    // Carte plein écran
+    isMapFull&&h("div",{style:{position:"fixed",inset:0,zIndex:5,maxWidth:460,margin:"0 auto",width:"100%"}},
+      h("div",{style:{position:"absolute",top:16,left:16,right:16,zIndex:20,display:"flex",alignItems:"center",gap:10}},
+        h("div",{style:{flex:1,background:"rgba(255,255,255,0.96)",backdropFilter:"blur(12px)",borderRadius:"var(--rl)",padding:"12px 16px",boxShadow:"var(--shadow2)"}},
+          h("div",{style:{fontSize:16,fontWeight:700}},"Carte des zones"),
+          h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1}},`${unlockedCount} post${unlockedCount>1?"s":""} visible${unlockedCount>1?"s":""}`)
+        ),
+        h("div",{style:{width:44,height:44,background:"rgba(255,255,255,0.96)",backdropFilter:"blur(12px)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--shadow2)",cursor:"pointer",flexShrink:0}},
+          h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:gps?"var(--green)":"var(--text3)",strokeWidth:2},h("circle",{cx:12,cy:10,r:3}),h("path",{d:"M12 2a8 8 0 0 0-8 8c0 5.4 8 14 8 14s8-8.6 8-14a8 8 0 0 0-8-8z"}))
+        )
+      ),
+      h("div",{style:{position:"absolute",inset:0}},
+        h(ZoneMap,{posts:visiblePosts,gps,myUid,onPostClick:p=>push({id:"profile",uk:p.uid}),users,showGpsPin:true,showControls:true})
+      ),
+      // Posts défilants en bas de carte
+      visiblePosts.filter(p=>canSee(p,myUid,gps)).length>0&&h("div",{style:{position:"absolute",bottom:90,left:0,right:0,zIndex:15}},
+        h("div",{style:{display:"flex",gap:10,overflowX:"auto",padding:"0 16px",paddingBottom:4,scrollbarWidth:"none"}},
+          visiblePosts.filter(p=>canSee(p,myUid,gps)&&p.lat&&p.lng).slice(0,10).map(p=>{
+            const u=users[p.uid];const d=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):0;
+            return h("div",{key:p.id,onClick:()=>push({id:"profile",uk:p.uid}),style:{flexShrink:0,width:160,background:"#fff",borderRadius:"var(--rl)",overflow:"hidden",boxShadow:"var(--shadow2)",cursor:"pointer"}},
+              p.photo?h("img",{src:p.photo,style:{width:"100%",height:100,objectFit:"cover",display:"block"}}):h("div",{style:{height:60,background:"var(--gbg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}},p.text?p.text.slice(0,1):"📍"),
+              h("div",{style:{padding:"8px 10px"}},
+                h("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:3}},
+                  h(Av,{photo:u?.photo,pseudo:u?.pseudo||"?",sz:18,hue:uidHue(p.uid)}),
+                  h("span",{style:{fontSize:11,fontWeight:600,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},u?.pseudo||"…")
+                ),
+                h("div",{style:{fontSize:11,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},p.text||"📷 Photo"),
+                h("div",{style:{fontSize:10,color:"var(--green)",marginTop:3,fontWeight:500}},fmtD(d))
+              )
+            );
+          })
+        )
+      ),
+      h(TabBar),
+      showFAB&&h("div",{style:{position:"absolute",bottom:100,right:20,zIndex:25}},
+        h("button",{onClick:()=>push({id:"publish"}),style:{width:54,height:54,borderRadius:"50%",background:"var(--green)",color:"#fff",border:"none",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px rgba(29,158,117,0.4)"}},"＋")
+      )
+    ),
+
+    // Autres écrans
+    !isMapFull&&h("div",{key:cur.id+(cur.uk||""),className:stack.length>1?slideClass:""},
+
+      cur.id==="feed"&&h("div",{style:{paddingBottom:120}},
+        // Feed header
+        h("div",{style:{padding:"56px 20px 16px",display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
+          h("div",null,
+            h("div",{style:{fontSize:28,fontWeight:800,letterSpacing:"-0.5px"}},"Feed"),
+            h("div",{style:{fontSize:14,color:"var(--text2)",marginTop:2}},"Découvre ce qui se passe autour de toi")
+          ),
+          h("div",{style:{width:44,height:44,borderRadius:12,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--shadow)",cursor:"pointer"}},
+            h("span",{style:{fontSize:20,fontWeight:800,color:"var(--green)"}},"Z")
+          )
+        ),
+        !gps&&h("div",{style:{margin:"0 16px 12px",padding:"12px 16px",background:"#FFF3CD",borderRadius:"var(--r)",fontSize:13,color:"#856404",display:"flex",alignItems:"center",gap:8}},
+          h("span",null,"⚠️"),h("span",null,"GPS non disponible")
+        ),
+        visiblePosts.length===0
+          ?h("div",{style:{margin:"0 16px",background:"#fff",borderRadius:"var(--rl)",padding:"60px 24px",textAlign:"center",boxShadow:"var(--shadow)"}},
+              h("div",{style:{fontSize:40,marginBottom:12}},"📍"),
+              h("div",{style:{fontSize:16,fontWeight:600,marginBottom:6}},"Aucun post pour l'instant"),
+              h("div",{style:{fontSize:14,color:"var(--text2)"}},"Clique sur ＋ pour publier le premier !")
+            )
+          :visiblePosts.map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats:myCats,users,onAuthor:uid=>push({id:"profile",uk:uid}),onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id),onViewPhoto:p=>push({id:"photo",post:p})}))
+      ),
+
+      cur.id==="search"&&h(SearchScreen,{users,myUid,onGoProfile:uid=>push({id:"profile",uk:uid})}),
+      cur.id==="profile"&&h(ProfileScreen,{uid:cur.uk||myUid,myUid,users,posts:visiblePosts,gps,cats:myCats,onBack:pop,onGoProfile:uid=>push({id:"profile",uk:uid}),onEditAccess:id=>push(id==="__cats__"?{id:"cats"}:{id:"access",catId:id}),onViewPhoto:p=>push({id:"photo",post:p})}),
+      cur.id==="publish"&&h(PublishScreen,{myUid,gps,cats:myCats,onBack:pop}),
+      cur.id==="photo"&&h(PhotoScreen,{post:cur.post,myUid,gps,users,onBack:pop}),
+      cur.id==="cats"&&h(CatsScreen,{myUid,cats:myCats,onBack:pop,onEditAccess:id=>push({id:"access",catId:id})}),
+      cur.id==="access"&&myCats.find(c=>c.id===cur.catId)&&h(AccessScreen,{cat:myCats.find(c=>c.id===cur.catId),myUid,users,onBack:pop})
+    ),
+
+    !isMapFull&&!isPublish&&h(TabBar),
+    !isMapFull&&!isPublish&&showFAB&&h("div",{style:{position:"fixed",bottom:96,right:20,zIndex:49,maxWidth:460}},
+      h("button",{onClick:()=>push({id:"publish"}),style:{width:54,height:54,borderRadius:"50%",background:"var(--green)",color:"#fff",border:"none",cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px rgba(29,158,117,0.4)"}},"＋")
+    )
+  );
+}
+
+ReactDOM.render(h(App),document.getElementById("root"));
+</script>
+</body>
+</html>
