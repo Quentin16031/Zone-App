@@ -382,8 +382,11 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
   const [edTxt,setEdTxt]=useState(post.text||"");
   const [del,setDel]=useState(false);
   const [changeCat,setChangeCat]=useState(false);
+  const [changeRad,setChangeRad]=useState(false);
+  const [newRad,setNewRad]=useState(post.radius||300);
   const liked=!!(post.likes&&post.likes[myUid]);
   const likeCount=post.likes?Object.keys(post.likes).length:0;
+  const fR=m=>m>=1000?`${(m/1000).toFixed(1)} km`:`${m} m`;
 
   return h("div",{style:{background:"#fff",borderRadius:"var(--rl)",margin:"0 16px 12px",boxShadow:"var(--shadow)",overflow:"hidden"},onClick:()=>menu&&setMenu(false)},
     vis&&post.photo&&h("div",{onClick:()=>onViewPhoto&&onViewPhoto(post),style:{width:"100%",overflow:"hidden",cursor:"zoom-in"}},
@@ -411,6 +414,7 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
           menu&&h("div",{style:{position:"absolute",right:0,top:"100%",marginTop:4,background:"#fff",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",zIndex:30,minWidth:160,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}},
             h("button",{onClick:()=>{setEd(true);setEdTxt(post.text||"");setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"✏️ Modifier le texte"),
             h("button",{onClick:()=>{setChangeCat(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"🏷 Changer de catégorie"),
+            h("button",{onClick:()=>{setChangeRad(true);setNewRad(post.radius||300);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"📡 Modifier le rayon"),
             h("button",{onClick:()=>{setDel(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🗑 Supprimer")
           )
         )
@@ -428,6 +432,26 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
         ),
         h("button",{onClick:()=>setChangeCat(false),style:{marginTop:8,fontSize:12,color:"var(--text3)",background:"transparent",border:"none",cursor:"pointer",padding:0}},"Annuler")
       ),
+      changeRad&&h("div",{style:{padding:"8px 0"}},
+        h("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:8}},"Modifier le rayon de visibilité :"),
+        h("div",{style:{borderRadius:"var(--r)",overflow:"hidden",marginBottom:10}},
+          h(RadiusMap,{gps:{lat:post.lat,lng:post.lng},radius:newRad,height:160})
+        ),
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:13,fontWeight:600}},
+          h("span",null,"Rayon"),
+          h("span",{style:{color:"var(--green)"}},fR(newRad))
+        ),
+        h("input",{type:"range",min:50,max:5000,step:50,value:newRad,
+          onChange:e=>setNewRad(Number(e.target.value)),
+          style:{width:"100%",accentColor:"var(--green)"}}),
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginTop:2,fontSize:10,color:"var(--text3)"}},
+          h("span",null,"50 m"),h("span",null,"2,5 km"),h("span",null,"5 km")
+        ),
+        h("div",{style:{display:"flex",gap:8,marginTop:10}},
+          h("button",{onClick:()=>{patchPost(post.id,{radius:newRad});setChangeRad(false);},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--green)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Sauvegarder"),
+          h("button",{onClick:()=>setChangeRad(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler")
+        )
+      ),
       ed&&h("div",null,
         h("textarea",{value:edTxt,onChange:e=>setEdTxt(e.target.value),style:{width:"100%",minHeight:60,padding:10,fontSize:13,lineHeight:1.5,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"var(--bg2)",color:"var(--text)",fontFamily:"inherit",resize:"none",boxSizing:"border-box"}}),
         h("div",{style:{display:"flex",gap:8,marginTop:6}},
@@ -435,7 +459,7 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
           h("button",{onClick:()=>setEd(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler")
         )
       ),
-      !ed&&!del&&!changeCat&&(vis
+      !ed&&!del&&!changeCat&&!changeRad&&(vis
         ?h("div",null,
             post.text&&h("p",{style:{fontSize:14,margin:"0 0 10px",lineHeight:1.65}},post.text),
             h("button",{onClick:()=>toggleLike(post.id,myUid,liked),style:{background:"transparent",border:"none",cursor:"pointer",padding:0,fontSize:13,color:liked?"#E24B4A":"var(--text3)",display:"flex",alignItems:"center",gap:4}},
