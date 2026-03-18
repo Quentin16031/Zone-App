@@ -959,6 +959,7 @@ function PublishScreen({myUid,gps,cats,onBack}){
   const [saving,setSaving]=useState(false);
   const leafZoneRef=useRef(null);
   const fileRef=useRef(null);
+  const sC=cats.find(c=>c.id===sel);
   const lb=sC?aLbl(sC.access):null;
   const postGps=photoGps||gps;
   const fR=m=>m>=1000?`${(m/1000).toFixed(1)} km`:`${m} m`;
