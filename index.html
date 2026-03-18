@@ -927,26 +927,45 @@ function PublishScreen({myUid,gps,cats,onBack}){
   // ── ÉTAPE 2 : ZONE ──
   if(step==="zone"){
     const vh=window.innerHeight;
-    return h("div",{style:{position:"fixed",inset:0,zIndex:80,maxWidth:460,margin:"0 auto",width:"100%",background:"#edecea"}},
-      // Carte avec hauteur en pixels — garantie de s'afficher
-      h(RadiusMap,{gps:postGps,radius:rad,height:vh,fullscreen:true}),
-      // Flèche retour
-      h("div",{style:{position:"absolute",top:52,left:16,zIndex:10}},
-        h(BackBtn,{onClick:()=>setStep("form")})
+    return h("div",{style:{position:"fixed",inset:0,zIndex:80,maxWidth:460,margin:"0 auto",width:"100%"}},
+      // Carte en arrière-plan (zIndex:1)
+      h("div",{style:{position:"absolute",inset:0,zIndex:1}},
+        h(RadiusMap,{gps:postGps,radius:rad,height:vh,fullscreen:true})
       ),
-      // Badge rayon
-      h("div",{style:{position:"absolute",top:56,right:16,zIndex:10,padding:"8px 16px",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(8px)",borderRadius:20,boxShadow:"var(--shadow2)"}},
+      // Flèche retour (zIndex:20)
+      h("button",{onClick:()=>setStep("form"),style:{
+        position:"absolute",top:52,left:16,zIndex:20,
+        width:40,height:40,borderRadius:12,
+        background:"#fff",border:"none",cursor:"pointer",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        boxShadow:"0 2px 12px rgba(0,0,0,0.2)"
+      }},
+        h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"#0D1117",strokeWidth:2.5},
+          h("polyline",{points:"15 18 9 12 15 6"})
+        )
+      ),
+      // Badge rayon haut droite (zIndex:20)
+      h("div",{style:{
+        position:"absolute",top:56,right:16,zIndex:20,
+        padding:"8px 16px",background:"#fff",
+        borderRadius:20,boxShadow:"0 2px 12px rgba(0,0,0,0.2)"
+      }},
         h("span",{style:{fontSize:16,fontWeight:700,color:"var(--green)"}},fR(rad))
       ),
-      // Îlot flottant en bas
-      h("div",{style:{position:"absolute",bottom:32,left:16,right:16,zIndex:10,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(16px)",borderRadius:24,padding:"16px 20px 20px",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}},
-        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+      // Îlot bas (zIndex:20)
+      h("div",{style:{
+        position:"absolute",bottom:32,left:16,right:16,zIndex:20,
+        background:"#fff",borderRadius:24,
+        padding:"16px 20px 20px",
+        boxShadow:"0 8px 32px rgba(0,0,0,0.2)"
+      }},
+        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
           h("span",{style:{fontSize:13,fontWeight:600,color:"var(--text)"}},"Zone de visibilité"),
           h("span",{style:{fontSize:14,fontWeight:700,color:"var(--green)"}},fR(rad))
         ),
         h("input",{type:"range",min:50,max:5000,step:50,value:rad,
           onChange:e=>setRad(Number(e.target.value)),
-          style:{width:"100%",accentColor:"var(--green)",marginBottom:4}}),
+          style:{width:"100%",accentColor:"var(--green)",marginBottom:6}}),
         h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:14,fontSize:10,color:"var(--text3)"}},
           h("span",null,"50 m"),h("span",null,"2,5 km"),h("span",null,"5 km")
         ),
