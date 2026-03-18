@@ -388,7 +388,7 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
   const likeCount=post.likes?Object.keys(post.likes).length:0;
   const fR=m=>m>=1000?`${(m/1000).toFixed(1)} km`:`${m} m`;
 
-  return h("div",{style:{background:"#fff",borderRadius:"var(--rl)",margin:"0 16px 12px",boxShadow:"var(--shadow)",overflow:"hidden"},onClick:()=>menu&&setMenu(false)},
+  return h("div",{style:{background:"#fff",borderRadius:"var(--rl)",margin:"0 16px 12px",boxShadow:"var(--shadow)",overflow:"hidden"}},
     vis&&post.photo&&h("div",{onClick:()=>onViewPhoto&&onViewPhoto(post),style:{width:"100%",overflow:"hidden",cursor:"zoom-in"}},
       h("img",{src:post.photo,style:{width:"100%",display:"block"}})
     ),
@@ -409,14 +409,17 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
         ),
         own?h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:"#E1F5EE",color:"#0F6E56"}},inZone?"✓ Ici":fmtD(d))
           :h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:inZone?"#E1F5EE":"var(--bg2)",color:inZone?"#0F6E56":"var(--text2)"}},gps?(inZone?`✓ ${fmtD(d)}`:fmtD(d)):"—"),
-        own&&h("div",{style:{position:"relative"},onClick:e=>e.stopPropagation()},
-          h("button",{onClick:()=>setMenu(v=>!v),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:"2px 6px",lineHeight:1}},"⋯"),
-          menu&&h("div",{style:{position:"absolute",right:0,top:"100%",marginTop:4,background:"#fff",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",zIndex:30,minWidth:160,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}},
-            h("button",{onClick:()=>{setEd(true);setEdTxt(post.text||"");setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"✏️ Modifier le texte"),
-            h("button",{onClick:()=>{setChangeCat(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"🏷 Changer de catégorie"),
-            h("button",{onClick:()=>{setChangeRad(true);setNewRad(post.radius||300);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"📡 Modifier le rayon"),
-            h("button",{onClick:()=>{setDel(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🗑 Supprimer")
-          )
+        own&&h("button",{onClick:()=>setMenu(true),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:"2px 6px",lineHeight:1,flexShrink:0}},"⋯")
+      ),
+      // Bottom sheet menu
+      menu&&h("div",{onClick:()=>setMenu(false),style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}},
+        h("div",{onClick:e=>e.stopPropagation(),style:{width:"100%",maxWidth:460,background:"#fff",borderRadius:"20px 20px 0 0",padding:"8px 0 20px",animation:"fadeUp .2s ease both"}},
+          h("div",{style:{width:36,height:4,borderRadius:2,background:"var(--border2)",margin:"0 auto 8px"}}),
+          h("button",{onClick:()=>{setEd(true);setEdTxt(post.text||"");setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"✏️ Modifier le texte"),
+          h("button",{onClick:()=>{setChangeCat(true);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"🏷 Changer de catégorie"),
+          h("button",{onClick:()=>{setChangeRad(true);setNewRad(post.radius||300);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"📡 Modifier le rayon"),
+          h("button",{onClick:()=>{setDel(true);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🗑 Supprimer"),
+          h("button",{onClick:()=>setMenu(false),style:{display:"block",width:"calc(100% - 32px)",margin:"10px 16px 0",padding:"14px",fontSize:14,fontWeight:600,background:"var(--bg2)",border:"none",borderRadius:"var(--r)",cursor:"pointer",textAlign:"center",color:"var(--text2)"}},"Annuler")
         )
       ),
       del&&h("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}},
@@ -1513,10 +1516,10 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
       )
     ),
 
-    // Text posts
+    // All posts as cards
     catFilter!=="mapview"&&h("div",{style:{marginTop:12}},
-      filteredPosts.filter(p=>!p.photo).length===0&&photos.length>0?null
-      :filteredPosts.filter(p=>!p.photo).map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats,users,onAuthor:()=>{},onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id),onViewPhoto}))
+      filteredPosts.length===0?null
+      :filteredPosts.map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats,users,onAuthor:uid2=>{if(uid2!==uid)onGoProfile(uid2);},onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id),onViewPhoto}))
     ),
 
     // Abonnements (seulement soi)
