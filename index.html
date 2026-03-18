@@ -495,51 +495,37 @@ function CropTool({src,onConfirm,onCancel}){
 }
 
 // ── RADIUS PREVIEW MAP ─────────────────────────────────────
-function RadiusMap({gps,radius,height=140,fullscreen=false,locked=false,onMapReady=null}){
+// Copie exacte du pattern ZoneMap qui fonctionne sur iOS Safari
+function RadiusMap({gps,radius,height=140,onMapReady=null}){
   const mapRef=useRef(null);
   const leafRef=useRef(null);
   const circleRef=useRef(null);
-  const initDoneRef=useRef(false);
 
   useEffect(()=>{
     if(!mapRef.current||leafRef.current||!gps)return;
     const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
-    const map=L.map(mapRef.current,{
-      zoomControl:false,attributionControl:false,
-      dragging:!locked,scrollWheelZoom:!locked,
-      doubleClickZoom:!locked,touchZoom:!locked,
-      tap:!locked
-    }).setView([gps.lat,gps.lng],zoom);
+    // Exactement comme ZoneMap : zoomControl:false puis L.control.zoom() séparé
+    const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView([gps.lat,gps.lng],zoom);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
-    const iconHtml=fullscreen
-      ?`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`
-      :`<svg width="20" height="26" viewBox="0 0 20 26"><path d="M10 26C10 26 1 16 1 9A9 9 0 1 1 19 9C19 16 10 26 10 26Z" fill="#1D9E75" stroke="white" stroke-width="1.5"/><circle cx="10" cy="9" r="3.5" fill="white"/></svg>`;
-    const iconSize=fullscreen?[28,38]:[20,26];
-    const iconAnchor=fullscreen?[14,38]:[10,26];
-    const icon=L.divIcon({className:'',html:iconHtml,iconSize,iconAnchor});
+    L.control.zoom({position:'topright'}).addTo(map);
+    const icon=L.divIcon({className:'',html:'<svg width="20" height="26" viewBox="0 0 20 26"><path d="M10 26C10 26 1 16 1 9A9 9 0 1 1 19 9C19 16 10 26 10 26Z" fill="#1D9E75" stroke="white" stroke-width="1.5"/><circle cx="10" cy="9" r="3.5" fill="white"/></svg>',iconSize:[20,26],iconAnchor:[10,26]});
     L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
-    circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.12}).addTo(map);
+    circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.13}).addTo(map);
     leafRef.current=map;
     if(onMapReady)onMapReady(map);
-    initDoneRef.current=true;
-    return()=>{map.remove();leafRef.current=null;circleRef.current=null;initDoneRef.current=false;};
+    return()=>{map.remove();leafRef.current=null;circleRef.current=null;};
   },[gps?.lat,gps?.lng]);
 
-  // Quand le radius change : met à jour le cercle SEULEMENT, pas le zoom ni la vue
+  // Met à jour le cercle seulement — JAMAIS de setView après l'init
   useEffect(()=>{
-    if(!leafRef.current||!circleRef.current||!initDoneRef.current)return;
+    if(!leafRef.current||!circleRef.current)return;
     circleRef.current.setRadius(radius);
-    // Zoom automatique seulement si la carte vient d'être ouverte (initDone vient de passer à true)
-    // Après ça, l'utilisateur est libre de naviguer
   },[radius]);
 
-  const style=fullscreen
-    ?{width:"100%",height:typeof height==="number"?height+"px":height}
-    :{height,borderRadius:"var(--rl)",overflow:"hidden",border:"0.5px solid var(--border)"};
-
-  if(!gps)return h("div",{style:{...style,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"GPS requis");
-  return h("div",{ref:mapRef,style});
+  if(!gps)return h("div",{style:{height,borderRadius:"var(--rl)",background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"GPS requis");
+  return h("div",{ref:mapRef,style:{height,borderRadius:"var(--rl)",overflow:"hidden",border:"0.5px solid var(--border)"}});
 }
+
 // ── BEREAL CAMERA ──────────────────────────────────────────
 function BeRealCamera({onCapture,onCancel,gps}){
   const [status,setStatus]=useState("init"); // init | loading | ready | countdown | error
@@ -1007,23 +993,21 @@ function PublishScreen({myUid,gps,cats,onBack}){
   );
 
   // ── ÉTAPE 2 : ZONE ──
-  if(step==="zone") return h("div",{style:{minHeight:"100vh",background:"var(--bg3)",display:"flex",flexDirection:"column"}},
-    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",borderBottom:"0.5px solid var(--border)",padding:"0 16px"}},
-      h("div",{style:{paddingTop:52,paddingBottom:14,display:"flex",alignItems:"center",gap:14}},
+  if(step==="zone") return h("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"var(--bg3)",display:"flex",flexDirection:"column",zIndex:50,maxWidth:460,margin:"0 auto"}},
+    // Header fixe
+    h("div",{style:{flexShrink:0,background:"rgba(255,255,255,0.97)",borderBottom:"0.5px solid var(--border)",padding:"52px 16px 14px"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:14}},
         h(BackBtn,{onClick:()=>setStep("form")}),
         h("span",{style:{fontSize:17,fontWeight:700,flex:1}},"Définir la zone"),
         h("span",{style:{fontSize:15,fontWeight:800,color:"var(--green)"}},fR(rad))
       )
     ),
-    h("div",{style:{flex:1,padding:"16px",display:"flex",flexDirection:"column",gap:14}},
-      // Carte avec zoom buttons manuels — pas de touch/drag pour éviter le bounce iOS
-      h("div",{style:{position:"relative"}},
-        h(RadiusMap,{gps:postGps,radius:rad,height:320,locked:true,onMapReady:m=>leafZoneRef.current=m}),
-        h("div",{style:{position:"absolute",top:8,right:8,display:"flex",flexDirection:"column",gap:4,zIndex:10}},
-          h("button",{onClick:()=>{if(leafZoneRef.current)leafZoneRef.current.zoomIn();},style:{width:32,height:32,background:"#fff",border:"none",borderRadius:8,fontSize:18,cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600}},"+"),
-          h("button",{onClick:()=>{if(leafZoneRef.current)leafZoneRef.current.zoomOut();},style:{width:32,height:32,background:"#fff",border:"none",borderRadius:8,fontSize:18,cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600}},"−")
-        )
-      ),
+    // Carte — hauteur fixe en pixels, pas de flex
+    h("div",{style:{flexShrink:0,padding:"16px 16px 0"}},
+      h(RadiusMap,{gps:postGps,radius:rad,height:280})
+    ),
+    // Slider + bouton dans un scroll si besoin
+    h("div",{style:{flex:1,overflowY:"auto",padding:"14px 16px 16px",display:"flex",flexDirection:"column",gap:12}},
       h("div",{style:{background:"#fff",borderRadius:"var(--rl)",padding:"16px",boxShadow:"var(--shadow)"}},
         h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:10,fontSize:13,fontWeight:600}},
           h("span",null,"Rayon de visibilité"),
@@ -1040,7 +1024,8 @@ function PublishScreen({myUid,gps,cats,onBack}){
         width:"100%",padding:16,fontSize:15,fontWeight:700,
         background:"var(--green)",color:"#fff",border:"none",
         borderRadius:"var(--rl)",cursor:"pointer",
-        boxShadow:"0 4px 20px rgba(29,158,117,0.35)"
+        boxShadow:"0 4px 20px rgba(29,158,117,0.35)",
+        flexShrink:0
       }},"✓ Confirmer cette zone")
     )
   );
