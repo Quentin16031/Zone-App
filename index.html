@@ -382,10 +382,13 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
   const [edTxt,setEdTxt]=useState(post.text||"");
   const [del,setDel]=useState(false);
   const [changeCat,setChangeCat]=useState(false);
+  const [changeRad,setChangeRad]=useState(false);
+  const [newRad,setNewRad]=useState(post.radius||300);
   const liked=!!(post.likes&&post.likes[myUid]);
   const likeCount=post.likes?Object.keys(post.likes).length:0;
+  const fR=m=>m>=1000?`${(m/1000).toFixed(1)} km`:`${m} m`;
 
-  return h("div",{style:{background:"#fff",borderRadius:"var(--rl)",margin:"0 16px 12px",boxShadow:"var(--shadow)",overflow:"hidden"},onClick:()=>menu&&setMenu(false)},
+  return h("div",{style:{background:"#fff",borderRadius:"var(--rl)",margin:"0 16px 12px",boxShadow:"var(--shadow)",overflow:"hidden"}},
     vis&&post.photo&&h("div",{onClick:()=>onViewPhoto&&onViewPhoto(post),style:{width:"100%",overflow:"hidden",cursor:"zoom-in"}},
       h("img",{src:post.photo,style:{width:"100%",display:"block"}})
     ),
@@ -406,13 +409,17 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
         ),
         own?h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:"#E1F5EE",color:"#0F6E56"}},inZone?"✓ Ici":fmtD(d))
           :h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:inZone?"#E1F5EE":"var(--bg2)",color:inZone?"#0F6E56":"var(--text2)"}},gps?(inZone?`✓ ${fmtD(d)}`:fmtD(d)):"—"),
-        own&&h("div",{style:{position:"relative"},onClick:e=>e.stopPropagation()},
-          h("button",{onClick:()=>setMenu(v=>!v),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:"2px 6px",lineHeight:1}},"⋯"),
-          menu&&h("div",{style:{position:"absolute",right:0,top:"100%",marginTop:4,background:"#fff",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",zIndex:30,minWidth:160,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}},
-            h("button",{onClick:()=>{setEd(true);setEdTxt(post.text||"");setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"✏️ Modifier le texte"),
-            h("button",{onClick:()=>{setChangeCat(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"🏷 Changer de catégorie"),
-            h("button",{onClick:()=>{setDel(true);setMenu(false);},style:{display:"block",width:"100%",padding:"10px 14px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🗑 Supprimer")
-          )
+        own&&h("button",{onClick:()=>setMenu(true),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:"2px 6px",lineHeight:1,flexShrink:0}},"⋯")
+      ),
+      // Bottom sheet menu
+      menu&&h("div",{onClick:()=>setMenu(false),style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}},
+        h("div",{onClick:e=>e.stopPropagation(),style:{width:"100%",maxWidth:460,background:"#fff",borderRadius:"20px 20px 0 0",padding:"8px 0 20px",animation:"fadeUp .2s ease both"}},
+          h("div",{style:{width:36,height:4,borderRadius:2,background:"var(--border2)",margin:"0 auto 8px"}}),
+          h("button",{onClick:()=>{setEd(true);setEdTxt(post.text||"");setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"✏️ Modifier le texte"),
+          h("button",{onClick:()=>{setChangeCat(true);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"🏷 Changer de catégorie"),
+          h("button",{onClick:()=>{setChangeRad(true);setNewRad(post.radius||300);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text)"}},"📡 Modifier le rayon"),
+          h("button",{onClick:()=>{setDel(true);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:14,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🗑 Supprimer"),
+          h("button",{onClick:()=>setMenu(false),style:{display:"block",width:"calc(100% - 32px)",margin:"10px 16px 0",padding:"14px",fontSize:14,fontWeight:600,background:"var(--bg2)",border:"none",borderRadius:"var(--r)",cursor:"pointer",textAlign:"center",color:"var(--text2)"}},"Annuler")
         )
       ),
       del&&h("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}},
@@ -428,6 +435,26 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
         ),
         h("button",{onClick:()=>setChangeCat(false),style:{marginTop:8,fontSize:12,color:"var(--text3)",background:"transparent",border:"none",cursor:"pointer",padding:0}},"Annuler")
       ),
+      changeRad&&h("div",{style:{padding:"8px 0"}},
+        h("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:8}},"Modifier le rayon de visibilité :"),
+        h("div",{style:{borderRadius:"var(--r)",overflow:"hidden",marginBottom:10}},
+          h(RadiusMap,{gps:{lat:post.lat,lng:post.lng},radius:newRad,height:160})
+        ),
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:13,fontWeight:600}},
+          h("span",null,"Rayon"),
+          h("span",{style:{color:"var(--green)"}},fR(newRad))
+        ),
+        h("input",{type:"range",min:50,max:5000,step:50,value:newRad,
+          onChange:e=>setNewRad(Number(e.target.value)),
+          style:{width:"100%",accentColor:"var(--green)"}}),
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginTop:2,fontSize:10,color:"var(--text3)"}},
+          h("span",null,"50 m"),h("span",null,"2,5 km"),h("span",null,"5 km")
+        ),
+        h("div",{style:{display:"flex",gap:8,marginTop:10}},
+          h("button",{onClick:()=>{patchPost(post.id,{radius:newRad});setChangeRad(false);},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--green)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Sauvegarder"),
+          h("button",{onClick:()=>setChangeRad(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler")
+        )
+      ),
       ed&&h("div",null,
         h("textarea",{value:edTxt,onChange:e=>setEdTxt(e.target.value),style:{width:"100%",minHeight:60,padding:10,fontSize:13,lineHeight:1.5,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"var(--bg2)",color:"var(--text)",fontFamily:"inherit",resize:"none",boxSizing:"border-box"}}),
         h("div",{style:{display:"flex",gap:8,marginTop:6}},
@@ -435,7 +462,7 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
           h("button",{onClick:()=>setEd(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler")
         )
       ),
-      !ed&&!del&&!changeCat&&(vis
+      !ed&&!del&&!changeCat&&!changeRad&&(vis
         ?h("div",null,
             post.text&&h("p",{style:{fontSize:14,margin:"0 0 10px",lineHeight:1.65}},post.text),
             h("button",{onClick:()=>toggleLike(post.id,myUid,liked),style:{background:"transparent",border:"none",cursor:"pointer",padding:0,fontSize:13,color:liked?"#E24B4A":"var(--text3)",display:"flex",alignItems:"center",gap:4}},
@@ -495,7 +522,9 @@ function CropTool({src,onConfirm,onCancel}){
 }
 
 // ── RADIUS PREVIEW MAP ─────────────────────────────────────
-// Copie exacte du pattern ZoneMap qui fonctionne sur iOS Safari
+// Helper partagé pour le zoom selon le rayon
+const radiusToZoom=r=>r<150?17:r<400?16:r<1000?15:r<2500?14:13;
+
 function RadiusMap({gps,radius,height=140,onMapReady=null}){
   const mapRef=useRef(null);
   const leafRef=useRef(null);
@@ -503,7 +532,7 @@ function RadiusMap({gps,radius,height=140,onMapReady=null}){
 
   useEffect(()=>{
     if(!mapRef.current||leafRef.current||!gps)return;
-    const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
+    const zoom=radiusToZoom(radius);
     // Exactement comme ZoneMap : zoomControl:false puis L.control.zoom() séparé
     const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView([gps.lat,gps.lng],zoom);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
@@ -520,8 +549,7 @@ function RadiusMap({gps,radius,height=140,onMapReady=null}){
   useEffect(()=>{
     if(!leafRef.current||!circleRef.current||!gps)return;
     circleRef.current.setRadius(radius);
-    const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
-    leafRef.current.setView([gps.lat,gps.lng],zoom,{animate:false});
+    leafRef.current.setView([gps.lat,gps.lng],radiusToZoom(radius),{animate:false});
   },[radius]);
 
   if(!gps)return h("div",{style:{height,borderRadius:"var(--rl)",background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"GPS requis");
@@ -859,12 +887,11 @@ function ZonePickerScreen({gps,radius,onRadiusChange,onConfirm,onBack,fR}){
   // Init carte une seule fois
   useEffect(()=>{
     if(!mapDivRef.current||leafRef.current||!gps)return;
-    const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
     const map=L.map(mapDivRef.current,{
       zoomControl:false,attributionControl:false,
       dragging:true,scrollWheelZoom:true,
       doubleClickZoom:true,touchZoom:true
-    }).setView([gps.lat,gps.lng],zoom);
+    }).setView([gps.lat,gps.lng],radiusToZoom(radius));
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
     L.control.zoom({position:'topright'}).addTo(map);
     const icon=L.divIcon({className:'',html:`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`,iconSize:[28,38],iconAnchor:[14,38]});
@@ -972,11 +999,8 @@ function PublishScreen({myUid,gps,cats,onBack}){
   const doPost=async()=>{
     if(!canPost||saving)return;
     setSaving(true);
-    let finalPhoto=photo;
-    if(photo){
-      const compressed=await new Promise(ok=>{const i=new Image();i.onload=()=>{const MAX=800,sc=Math.min(1,MAX/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=Math.round(i.width*sc);c.height=Math.round(i.height*sc);c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.6));};i.src=photo;});
-      finalPhoto=compressed;
-    }
+    // La photo est déjà redimensionnée et compressée par le CropTool (800px / 0.88)
+    const finalPhoto=photo||null;
     await pushPost(myUid,{text:txt.trim(),photo:finalPhoto||null,lat:postGps.lat,lng:postGps.lng,radius:rad,cat:sel,uid:myUid});
     setSaving(false);onBack();
   };
@@ -1252,49 +1276,37 @@ function CatsScreen({myUid,cats,onBack,onEditAccess}){
 
 // ── FOLLOWERS / FOLLOWING SCREEN ─────────────────────────
 function FollowListScreen({title,uids,users,myUid,following,onGoProfile,onBack}){
-  return h("div",{style:{minHeight:"100vh",background:"var(--bg3)"}},
-    h("div",{style:{background:"rgba(255,255,255,0.97)",borderBottom:"0.5px solid var(--border)",padding:"52px 20px 16px",display:"flex",alignItems:"center",gap:14}},
-      h("button",{onClick:onBack,style:{width:40,height:40,borderRadius:12,background:"var(--bg2)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
-        h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
-      ),
-      h("span",{style:{fontSize:18,fontWeight:700}},title)
+  return h("div",{style:{paddingBottom:60}},
+    h("div",{style:{padding:"0 16px"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:12,marginTop:16,marginBottom:16}},
+        h("button",{onClick:onBack,style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0}},"← Retour"),
+        h("span",{style:{fontSize:16,fontWeight:500}},title)
+      )
     ),
-    uids.length===0
-      ?h("div",{style:{padding:"60px 24px",textAlign:"center"}},
-          h("div",{style:{fontSize:36,marginBottom:12}},"👤"),
-          h("div",{style:{fontSize:15,fontWeight:600,marginBottom:6}},"Personne ici"),
-          h("div",{style:{fontSize:13,color:"var(--text3)"}},"La liste est vide pour l'instant")
-        )
-      :h("div",{style:{padding:"12px 16px",display:"flex",flexDirection:"column",gap:10}},
-          uids.map(uid=>{
-            const u=users[uid];if(!u)return null;
-            const hue=uidHue(uid);
-            const isF=!!(following&&following[uid]);
-            return h("div",{key:uid,style:{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"#fff",borderRadius:"var(--rl)",cursor:"pointer",boxShadow:"var(--shadow)"},onClick:()=>onGoProfile(uid)},
-              h(Av,{photo:u.photo,pseudo:u.pseudo||"?",sz:46,hue}),
-              h("div",{style:{flex:1,minWidth:0}},
-                h("div",{style:{fontSize:15,fontWeight:600,color:"var(--text)"}},u.pseudo||uid.slice(0,8)),
-                u.bio&&h("div",{style:{fontSize:13,color:"var(--text2)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},u.bio),
-                u.ville&&h("div",{style:{fontSize:12,color:"var(--text3)",marginTop:2}},"📍 "+u.ville)
-              ),
-              uid!==myUid&&h("button",{onClick:e=>{e.stopPropagation();toggleFollow(myUid,uid,isF);},style:{
-                padding:"7px 16px",fontSize:12,fontWeight:600,
-                background:isF?"var(--bg2)":"var(--green)",
-                color:isF?"var(--text)":"#fff",
-                border:"none",borderRadius:20,cursor:"pointer",flexShrink:0
-              }},isF?"Abonné ✓":"Suivre")
-            );
-          })
-        )
+    uids.length===0&&h("div",{style:{padding:"40px 24px",textAlign:"center",color:"var(--text3)",fontSize:13}},"Aucun utilisateur ici"),
+    uids.map(uid=>{
+      const u=users[uid];if(!u)return null;
+      const hue=uidHue(uid);
+      const isF=!!(following&&following[uid]);
+      return h("div",{key:uid,style:{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:"0.5px solid var(--border)",background:"#fff",cursor:"pointer"},onClick:()=>onGoProfile(uid)},
+        h(Av,{photo:u.photo,pseudo:u.pseudo||"?",sz:44,hue}),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{fontSize:14,fontWeight:500}},u.pseudo||uid.slice(0,8)),
+          u.bio&&h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},u.bio),
+          u.ville&&h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:1}},"📍 "+u.ville)
+        ),
+        uid!==myUid&&h("button",{onClick:e=>{e.stopPropagation();toggleFollow(myUid,uid,isF);},style:{padding:"6px 14px",fontSize:12,fontWeight:500,background:isF?"var(--bg2)":hue,color:isF?"var(--text)":"#fff",border:isF?"0.5px solid var(--border2)":"none",borderRadius:20,cursor:"pointer",flexShrink:0}},isF?"Abonné":"Suivre")
+      );
+    })
   );
 }
 
 // ── DAILY CHALLENGE + STREAK ──────────────────────────────
 // Génère une heure aléatoire reproductible pour un jour donné
 function getDailyTime(dateStr){
-  let h=0;for(const c of dateStr)h=(h*31+c.charCodeAt(0))%86400;
+  let hash=0;for(const c of dateStr)hash=(hash*31+c.charCodeAt(0))%86400;
   const base=8*3600;const range=14*3600; // entre 8h et 22h
-  return base+(h%range);
+  return base+(hash%range);
 }
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;}
 function nowSecs(){return Math.floor(Date.now()/1000)%86400;}
@@ -1327,7 +1339,7 @@ function DailyBanner({myUid,gps,onPost,streak}){
         h("div",{style:{fontSize:14,fontWeight:600,color:"#fff"}},"📸 Zone Moment !"),
         h("div",{style:{fontSize:12,color:"rgba(255,255,255,0.85)",marginTop:2}},`Poste une photo dans ${mins}:${String(secs).padStart(2,'0')} pour garder ta streak 🔥`)
       ),
-      streak>0&&h("div",{style:{fontSize:12,color:"#fff",fontWeight:500,background:"rgba(255,255,255,0.2)",padding:"4px 8px",borderRadius:12}}),
+      streak>0&&h("div",{style:{fontSize:12,color:"#fff",fontWeight:500,background:"rgba(255,255,255,0.2)",padding:"4px 8px",borderRadius:12}},`🔥 ${streak}`),
       h("button",{onClick:()=>onPost(),style:{padding:"7px 14px",background:"#fff",border:"none",borderRadius:16,fontSize:12,fontWeight:600,color:"#1D9E75",cursor:"pointer"}},"Poster"),
       h("button",{onClick:()=>setDismissed(true),style:{background:"transparent",border:"none",color:"rgba(255,255,255,0.7)",fontSize:18,cursor:"pointer",padding:"0 0 0 4px",lineHeight:1}},"×")
     )
@@ -1340,17 +1352,18 @@ async function checkAndUpdateStreak(myUid){
   const challengeTime=getDailyTime(day);
   const now=nowSecs();
   if(now-challengeTime<0||now-challengeTime>=300)return; // hors fenêtre
-  const ref=db.ref(`users/${myUid}/streak`);
-  const snap=await ref.once('value');
-  const s=snap.val()||{count:0,lastDay:""};
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
   const yStr=`${yesterday.getFullYear()}-${yesterday.getMonth()+1}-${yesterday.getDate()}`;
-  const newCount=s.lastDay===yStr?s.count+1:s.lastDay===day?s.count:1;
-  await ref.set({count:newCount,lastDay:day});
+  // Transaction atomique pour éviter les doublons en cas de post rapide
+  await db.ref(`users/${myUid}/streak`).transaction(s=>{
+    if(!s)s={count:0,lastDay:""};
+    const newCount=s.lastDay===yStr?s.count+1:s.lastDay===day?s.count:1;
+    return{count:newCount,lastDay:day};
+  });
 }
 
 // ── PROFIL ────────────────────────────────────────────────
-function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEditAccess,onViewPhoto,onFollowList}){
+function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEditAccess,onViewPhoto}){
   const u=users[uid]||{};
   const isSelf=uid===myUid;
   const me=users[myUid]||{};
@@ -1433,20 +1446,13 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
           )
         )
       ),
-      // Stats cliquables
+      // Stats
       h("div",{style:{display:"flex",gap:0,marginBottom:16,borderTop:"0.5px solid var(--border)",borderBottom:"0.5px solid var(--border)",padding:"14px 0"}},
-        h("div",{key:0,style:{flex:1,textAlign:"center",borderRight:"0.5px solid var(--border)",cursor:"default"}},
-          h("div",{style:{fontSize:20,fontWeight:800}},mine.length),
-          h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:2}},"Posts")
-        ),
-        h("div",{key:1,onClick:()=>onFollowList&&onFollowList("followers"),style:{flex:1,textAlign:"center",borderRight:"0.5px solid var(--border)",cursor:"pointer"}},
-          h("div",{style:{fontSize:20,fontWeight:800}},followers),
-          h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:2}},"Abonnés")
-        ),
-        h("div",{key:2,onClick:()=>onFollowList&&onFollowList("following"),style:{flex:1,textAlign:"center",cursor:"pointer"}},
-          h("div",{style:{fontSize:20,fontWeight:800}},Object.keys(me.following||{}).length),
-          h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:2}},"Abonnements")
-        )
+        [{v:mine.length,l:"Posts"},{v:followers,l:"Abonnés"},{v:Object.keys(me.following||{}).length,l:"Abonnements"}]
+        .map(({v,l},i)=>h("div",{key:i,style:{flex:1,textAlign:"center",borderRight:i<2?"0.5px solid var(--border)":"none"}},
+          h("div",{style:{fontSize:20,fontWeight:800}},v),
+          h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:2}},l)
+        ))
       ),
       // Actions
       isSelf
@@ -1474,7 +1480,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
       h("div",{style:{display:"flex",gap:10,overflowX:"auto",paddingBottom:4}},
         cats.map(c=>{
           const postCount=mine.filter(p=>p.cat===c.id).length;
-          return h("div",{key:c.id,onClick:()=>setCatFilter(catFilter===c.id?"all":c.id),style:{flexShrink:0,background:catFilter===c.id?"#fff":"#fff",borderRadius:"var(--rl)",padding:"16px 20px",minWidth:100,textAlign:"center",boxShadow:catFilter===c.id?"0 0 0 2px var(--green), var(--shadow)":"var(--shadow)",cursor:"pointer"}},
+          return h("div",{key:c.id,onClick:()=>setCatFilter(catFilter===c.id?"all":c.id),style:{flexShrink:0,background:catFilter===c.id?"var(--gbg)":"#fff",borderRadius:"var(--rl)",padding:"16px 20px",minWidth:100,textAlign:"center",boxShadow:catFilter===c.id?"0 0 0 2px var(--green), var(--shadow)":"var(--shadow)",cursor:"pointer"}},
             h("div",{style:{fontSize:28,marginBottom:8}},c.emoji),
             h("div",{style:{fontSize:13,fontWeight:600,color:"var(--text)"}},c.name),
             h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:2}},`${postCount} post${postCount>1?"s":""}`)
@@ -1508,12 +1514,23 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
       )
     ),
 
-    // Text posts
+    // All posts as cards
     catFilter!=="mapview"&&h("div",{style:{marginTop:12}},
-      filteredPosts.filter(p=>!p.photo).length===0&&photos.length>0?null
-      :filteredPosts.filter(p=>!p.photo).map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats,users,onAuthor:()=>{},onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id),onViewPhoto}))
+      filteredPosts.length===0?null
+      :filteredPosts.map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats,users,onAuthor:uid2=>{if(uid2!==uid)onGoProfile(uid2);},onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id),onViewPhoto}))
     ),
 
+    // Abonnements (seulement soi)
+    isSelf&&Object.keys(me.following||{}).length>0&&h("div",{style:{margin:"20px 16px 0",background:"#fff",borderRadius:"var(--rl)",padding:"16px",boxShadow:"var(--shadow)"}},
+      h("div",{style:{fontSize:15,fontWeight:700,marginBottom:12}},`Abonnements (${Object.keys(me.following||{}).length})`),
+      Object.keys(me.following||{}).map(fuid=>{const fu=users[fuid];if(!fu)return null;
+        return h("div",{key:fuid,style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
+          h("div",{onClick:()=>onGoProfile(fuid),style:{cursor:"pointer"}},h(Av,{photo:fu.photo,pseudo:fu.pseudo||"?",sz:40,hue:uidHue(fuid)})),
+          h("div",{style:{flex:1}},h("div",{style:{fontSize:14,fontWeight:600,cursor:"pointer"},onClick:()=>onGoProfile(fuid)},fu.pseudo||fuid.slice(0,8)),h("div",{style:{fontSize:12,color:"var(--text3)"}},fu.bio||"")),
+          h("button",{onClick:()=>toggleFollow(myUid,fuid,true),style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--bg2)",border:"none",borderRadius:20,cursor:"pointer",color:"var(--text2)",whiteSpace:"nowrap"}},"Se désabonner")
+        );
+      })
+    )
   );
 }
 
@@ -1696,17 +1713,7 @@ function App(){
       ),
 
       cur.id==="search"&&h(SearchScreen,{users,myUid,onGoProfile:uid=>push({id:"profile",uk:uid})}),
-      cur.id==="profile"&&h(ProfileScreen,{uid:cur.uk||myUid,myUid,users,posts:visiblePosts,gps,cats:myCats,onBack:pop,onGoProfile:uid=>push({id:"profile",uk:uid}),onEditAccess:id=>push(id==="__cats__"?{id:"cats"}:{id:"access",catId:id}),onViewPhoto:p=>push({id:"photo",post:p}),onFollowList:(type)=>push({id:"followlist",uk:cur.uk||myUid,type})}),
-      cur.id==="followlist"&&h(FollowListScreen,{
-        title:cur.type==="followers"?"Abonnés":"Abonnements",
-        uids:cur.type==="followers"
-          ?Object.entries(users).filter(([uid,u])=>uid!==cur.uk&&u?.following&&u.following[cur.uk]).map(([uid])=>uid)
-          :Object.keys(users[cur.uk]?.following||{}),
-        users,myUid,
-        following:users[myUid]?.following||{},
-        onGoProfile:uid=>push({id:"profile",uk:uid}),
-        onBack:pop
-      }),
+      cur.id==="profile"&&h(ProfileScreen,{uid:cur.uk||myUid,myUid,users,posts:visiblePosts,gps,cats:myCats,onBack:pop,onGoProfile:uid=>push({id:"profile",uk:uid}),onEditAccess:id=>push(id==="__cats__"?{id:"cats"}:{id:"access",catId:id}),onViewPhoto:p=>push({id:"photo",post:p})}),
       cur.id==="publish"&&h(PublishScreen,{myUid,gps,cats:myCats,onBack:pop}),
       cur.id==="photo"&&h(PhotoScreen,{post:cur.post,myUid,gps,users,onBack:pop}),
       cur.id==="cats"&&h(CatsScreen,{myUid,cats:myCats,onBack:pop,onEditAccess:id=>push({id:"access",catId:id})}),
