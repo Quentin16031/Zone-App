@@ -218,7 +218,7 @@ function ZoneMap({posts,gps,myUid,onPostClick,users,showGpsPin=true,showControls
 const pushPost=(uid,data)=>db.ref('posts').push({...data,uid,ts:Date.now()});
 const patchPost=(id,d)=>db.ref('posts/'+id).update(d);
 const rmPost=id=>db.ref('posts/'+id).remove();
-const toggleLike=(id,uid,has)=>db.ref(`likes/${id}/${uid}`).set(has?null:true);
+const toggleLike=(id,uid,has)=>db.ref(`posts/${id}/likes/${uid}`).set(has?null:true);
 const addComment=(postId,uid,text)=>db.ref(`comments/${postId}`).push({uid,text,ts:Date.now()});
 const rmComment=(postId,cid)=>db.ref(`comments/${postId}/${cid}`).remove();
 const saveProfile=(uid,d)=>db.ref('users/'+uid).update(d);
@@ -1277,19 +1277,15 @@ function App(){
     const pRef=db.ref('posts');
     const uRef=db.ref('users');
     const cRef=db.ref('categories/'+authUser.uid);
-    const lRef=db.ref('likes');
-    let postsData={};
-    let likesData={};
-    const merge=()=>{
-      const arr=Object.entries(postsData).map(([id,v])=>({id,...v,likes:likesData[id]||{}})).sort((a,b)=>b.ts-a.ts);
+    const onP=snap=>{
+      const d=snap.val()||{};
+      const arr=Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>b.ts-a.ts);
       setPosts(arr);
     };
-    const onP=snap=>{postsData=snap.val()||{};merge();};
-    const onL=snap=>{likesData=snap.val()||{};merge();};
     const onU=snap=>setUsers(snap.val()||{});
     const onC=snap=>{const d=snap.val()||{};setMyCats(Object.entries(d).map(([id,v])=>({id,...v})));};
-    pRef.on('value',onP);uRef.on('value',onU);cRef.on('value',onC);lRef.on('value',onL);
-    return()=>{pRef.off('value',onP);uRef.off('value',onU);cRef.off('value',onC);lRef.off('value',onL);};
+    pRef.on('value',onP);uRef.on('value',onU);cRef.on('value',onC);
+    return()=>{pRef.off('value',onP);uRef.off('value',onU);cRef.off('value',onC);};
   },[authUser]);
 
   // GPS
