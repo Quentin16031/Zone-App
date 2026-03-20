@@ -380,11 +380,21 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
   const [changeCat,setChangeCat]=useState(false);
   const [showComments,setShowComments]=useState(false);
   const [comments,setComments]=useState([]);
+  const [commentCount,setCommentCount]=useState(0);
   const [newComment,setNewComment]=useState("");
   const [sendingComment,setSendingComment]=useState(false);
   const liked=!!(post.likes&&post.likes[myUid]);
   const likeCount=post.likes?Object.keys(post.likes).filter(k=>post.likes[k]).length:0;
 
+  // Compteur permanent — léger, juste les clés
+  useEffect(()=>{
+    const ref=db.ref(`comments/${post.id}`);
+    const handler=snap=>{setCommentCount(snap.numChildren());};
+    ref.on('value',handler);
+    return()=>ref.off('value',handler);
+  },[post.id]);
+
+  // Contenu complet — seulement quand ouvert
   useEffect(()=>{
     if(!showComments)return;
     const ref=db.ref(`comments/${post.id}`);
@@ -465,7 +475,7 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
               ),
               h("button",{onClick:e=>{e.stopPropagation();setShowComments(v=>!v);},style:{background:"transparent",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:5,color:showComments?"var(--green)":"var(--text3)"}},
                 h("svg",{width:17,height:17,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"})),
-                h("span",{style:{fontSize:13,fontWeight:showComments?600:400}},comments.length||"")
+                h("span",{style:{fontSize:13,fontWeight:showComments?600:400}},commentCount||"")
               )
             )
           )
