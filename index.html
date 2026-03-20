@@ -102,6 +102,24 @@ function compressImg(file){
   });
 }
 
+// Vérifie si uid peut voir le post p selon la distance ET l'accès catégorie
+const canSeeAccess=(p,viewerUid,allUsers,allCats)=>{
+  if(p.uid===viewerUid)return true; // toujours voir ses propres posts
+  const authorCats=allCats?.[p.uid]||{};
+  const cat=p.cat?authorCats[p.cat]:null;
+  const access=cat?.access||"public";
+  if(access==="private")return false;
+  if(access==="public"){
+    // public = tous les abonnés de l'auteur (ceux qui suivent l'auteur)
+    const viewerFollowing=allUsers?.[viewerUid]?.following||{};
+    return !!viewerFollowing[p.uid];
+  }
+  // custom = seulement les uids listés dans access.custom
+  if(typeof access==="object"&&access.custom){
+    return !!access.custom[viewerUid];
+  }
+  return false;
+};
 const canSee=(p,uid,gps)=>p.uid===uid||(gps&&haversine(gps.lat,gps.lng,p.lat,p.lng)<=p.radius);
 const aLbl=a=>a==="public"?{icon:"🌍",label:"Tout le monde",c:"#1D9E75",bg:"#E1F5EE"}:a==="private"?{icon:"🔒",label:"Moi seul",c:"#888",bg:"#f1efe8"}:{icon:"👥",label:`${Object.keys((a&&a.custom)||{}).length} abonné(s)`,c:"#378ADD",bg:"#E6F1FB"};
 
@@ -868,10 +886,12 @@ function AccessScreen({cat,myUid,users,onBack}){
   const isPrv=cat.access==="private";
   const isCst=cat.access&&typeof cat.access==="object";
   const customSel=isCst?Object.keys(cat.access.custom||{}):[]; 
+  // Mes abonnés = ceux qui me suivent (users[x].following[myUid] === true)
   const followers=Object.entries(users).filter(([uid,u])=>uid!==myUid&&u?.following&&u.following[myUid]).map(([uid])=>uid);
 
   const setMode=m=>{
-    const acc=m==="public"?"public":m==="private"?"private":{custom:{}};
+    // Quand on passe en custom, on préserve la sélection existante si elle existe
+    const acc=m==="public"?"public":m==="private"?"private":{custom:isCst?cat.access.custom:{}};
     saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:acc});
   };
   const tog=uid=>{
@@ -879,30 +899,96 @@ function AccessScreen({cat,myUid,users,onBack}){
     if(cur[uid])delete cur[uid];else cur[uid]=true;
     saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:{custom:cur}});
   };
-  const modes=[{v:"public",icon:"🌍",l:"Tout le monde"},{v:"custom",icon:"👥",l:"Personnalisé"},{v:"private",icon:"🔒",l:"Moi seul"}];
 
-  return h("div",{style:{padding:"0 16px",paddingBottom:40}},
-    h("button",{onClick:onBack,style:{marginTop:16,background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0,display:"block"}},"← Retour"),
-    h("div",{style:{marginTop:14,fontSize:16,fontWeight:500}},`${cat.emoji} ${cat.name}`),
-    h("p",{style:{fontSize:13,color:"var(--text2)",margin:"6px 0 16px"}},"Qui peut voir les posts de cette catégorie ?"),
-    h("div",{style:{display:"flex",gap:8,marginBottom:20}},
-      modes.map(m=>{const on=(isPub&&m.v==="public")||(isPrv&&m.v==="private")||(isCst&&m.v==="custom");
-        return h("button",{key:m.v,onClick:()=>setMode(m.v),style:{flex:1,padding:"12px 4px",fontSize:11,lineHeight:1.5,borderRadius:"var(--r)",cursor:"pointer",textAlign:"center",fontWeight:on?500:400,background:on?"var(--bg2)":"transparent",border:on?"1.5px solid var(--border3)":"0.5px solid var(--border)",color:"var(--text)"}},h("div",{style:{fontSize:18,marginBottom:4}},m.icon),m.l);
-      })
+  const modes=[
+    {v:"public",icon:"🔓",l:"Tous mes abonnés",desc:"Visible par tous ceux qui te suivent"},
+    {v:"custom",icon:"👥",l:"Sélection",desc:"Tu choisis qui peut voir"},
+    {v:"private",icon:"🔒",l:"Moi seul",desc:"Visible uniquement par toi"}
+  ];
+
+  return h("div",{style:{paddingBottom:60,background:"var(--bg3)",minHeight:"100vh"}},
+    // Header
+    h("div",{style:{background:"#fff",padding:"16px 16px 14px",display:"flex",alignItems:"center",gap:12,borderBottom:"0.5px solid var(--border)"}},
+      h("button",{onClick:onBack,style:{width:36,height:36,borderRadius:10,background:"var(--bg2)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+        h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+      ),
+      h("div",null,
+        h("div",{style:{fontSize:16,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}},`${cat.emoji} ${cat.name}`),
+        h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1}},"Accès à cette catégorie")
+      )
     ),
-    isCst&&h("div",null,
-      h("p",{style:{fontSize:13,color:"var(--text2)",margin:"0 0 10px"}},followers.length===0?"Aucun abonné pour l'instant":"Sélectionne les abonnés autorisés :"),
+
+    // Modes
+    h("div",{style:{padding:"16px 16px 0"}},
+      h("div",{style:{fontSize:11,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}},"Qui peut voir ?"),
       h("div",{style:{display:"flex",flexDirection:"column",gap:8}},
-        followers.map(uid=>{const u=users[uid];const chk=customSel.includes(uid);
-          return h("div",{key:uid,onClick:()=>tog(uid),style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:"var(--r)",cursor:"pointer",background:chk?"var(--bg2)":"#fff",border:chk?"0.5px solid var(--border2)":"0.5px solid var(--border)"}},
-            h(Av,{photo:u?.photo,pseudo:u?.pseudo||"?",sz:38,hue:uidHue(uid)}),
-            h("div",{style:{flex:1}},h("div",{style:{fontSize:13,fontWeight:500}},u?.pseudo||uid.slice(0,8)),h("div",{style:{fontSize:11,color:"var(--text3)"}},u?.bio||"")),
-            h("div",{style:{width:22,height:22,borderRadius:"50%",flexShrink:0,background:chk?"#1D9E7520":"transparent",border:`1.5px solid ${chk?"#1D9E75":"var(--border2)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#1D9E75",fontWeight:500}},chk?"✓":"")
+        modes.map(m=>{
+          const on=(isPub&&m.v==="public")||(isPrv&&m.v==="private")||(isCst&&m.v==="custom");
+          return h("button",{key:m.v,onClick:()=>setMode(m.v),style:{
+            display:"flex",alignItems:"center",gap:14,padding:"14px 16px",
+            background:on?"#fff":"#fff",
+            border:on?"1.5px solid var(--green)":"0.5px solid var(--border)",
+            borderRadius:14,cursor:"pointer",textAlign:"left",
+            boxShadow:on?"0 0 0 3px var(--gbg)":"none"
+          }},
+            h("div",{style:{width:40,height:40,borderRadius:12,background:on?"var(--gbg)":"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}},m.icon),
+            h("div",{style:{flex:1}},
+              h("div",{style:{fontSize:14,fontWeight:700,color:on?"var(--green)":"var(--text)"}},[m.l," ",on&&h("span",{style:{fontSize:11,fontWeight:600}},"✓")]),
+              h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:2}},m.desc)
+            )
           );
         })
+      )
+    ),
+
+    // Liste abonnés pour le mode custom
+    isCst&&h("div",{style:{padding:"20px 16px 0"}},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
+        h("div",{style:{fontSize:11,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em"}},
+          followers.length===0?"Abonnés":"Mes abonnés"
+        ),
+        customSel.length>0&&h("span",{style:{fontSize:12,fontWeight:700,color:"var(--green)"}},`${customSel.length} sélectionné${customSel.length>1?"s":""}`)
       ),
-      h("div",{style:{marginTop:14,padding:"10px 14px",background:"#E6F1FB",borderRadius:"var(--r)",fontSize:12,color:"#185FA5"}},
-        customSel.length===0?"Aucun abonné sélectionné.":`👥 ${customSel.map(uid=>users[uid]?.pseudo||uid.slice(0,6)).join(", ")} ${customSel.length>1?"pourront":"pourra"} voir.`
+      followers.length===0
+        ?h("div",{style:{padding:"28px 16px",textAlign:"center",background:"#fff",borderRadius:14,border:"0.5px solid var(--border)"}},
+            h("div",{style:{fontSize:24,marginBottom:8}},"👤"),
+            h("div",{style:{fontSize:14,fontWeight:600,color:"var(--text)"}}, "Pas encore d'abonnés"),
+            h("div",{style:{fontSize:13,color:"var(--text2)",marginTop:4}},"Les personnes qui te suivent apparaîtront ici")
+          )
+        :h("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+            followers.map(uid=>{
+              const u=users[uid];
+              const chk=customSel.includes(uid);
+              const hue=uidHue(uid);
+              return h("div",{key:uid,onClick:()=>tog(uid),style:{
+                display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+                borderRadius:14,cursor:"pointer",
+                background:"#fff",
+                border:chk?"1.5px solid var(--green)":"0.5px solid var(--border)",
+                boxShadow:chk?"0 0 0 3px var(--gbg)":"none"
+              }},
+                h(Av,{photo:u?.photo,pseudo:u?.pseudo||"?",sz:40,hue}),
+                h("div",{style:{flex:1}},
+                  h("div",{style:{fontSize:14,fontWeight:700,color:"var(--text)"}},u?.pseudo||uid.slice(0,8)),
+                  u?.bio&&h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1}},u.bio)
+                ),
+                // Checkbox
+                h("div",{style:{
+                  width:24,height:24,borderRadius:8,flexShrink:0,
+                  background:chk?"var(--green)":"transparent",
+                  border:`1.5px solid ${chk?"var(--green)":"var(--border2)"}`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  transition:"all .15s"
+                }},
+                  chk&&h("svg",{width:13,height:13,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:3},h("polyline",{points:"20 6 9 17 4 12"}))
+                )
+              );
+            })
+          ),
+
+      // Récap
+      customSel.length>0&&h("div",{style:{marginTop:12,padding:"12px 14px",background:"var(--gbg)",borderRadius:12,fontSize:13,color:"var(--gtxt)",fontWeight:500}},
+        `✓ ${customSel.map(uid=>users[uid]?.pseudo||uid.slice(0,6)).join(", ")} ${customSel.length>1?"pourront":"pourra"} voir cette catégorie.`
       )
     )
   );
@@ -1267,6 +1353,7 @@ function App(){
   const [users,setUsers]=useState({});
   const [posts,setPosts]=useState([]);
   const [myCats,setMyCats]=useState([]);
+  const [allCats,setAllCats]=useState({});
   const [gps,setGps]=useState(null);
   const [stack,setStack]=useState([{id:"map"}]);
   const [signLoading,setSignLoading]=useState(false);
@@ -1295,14 +1382,19 @@ function App(){
     if(!authUser)return;
     const pRef=db.ref('posts');
     const uRef=db.ref('users');
-    const cRef=db.ref('categories/'+authUser.uid);
+    const cRef=db.ref('categories');
     const onP=snap=>{
       const d=snap.val()||{};
       const arr=Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>b.ts-a.ts);
       setPosts(arr);
     };
     const onU=snap=>setUsers(snap.val()||{});
-    const onC=snap=>{const d=snap.val()||{};setMyCats(Object.entries(d).map(([id,v])=>({id,...v})));};
+    const onC=snap=>{
+      const d=snap.val()||{};
+      setAllCats(d);
+      const mine=d[authUser.uid]||{};
+      setMyCats(Object.entries(mine).map(([id,v])=>({id,...v})));
+    };
     pRef.on('value',onP);uRef.on('value',onU);cRef.on('value',onC);
     return()=>{pRef.off('value',onP);uRef.off('value',onU);cRef.off('value',onC);};
   },[authUser]);
@@ -1348,7 +1440,12 @@ function App(){
   // ── App principale ──
   const myUid=authUser.uid;
   const myBlocked=Object.keys(users[myUid]?.blocked||{});
-  const visiblePosts=posts.filter(p=>!myBlocked.includes(p.uid));
+  const visiblePosts=posts.filter(p=>{
+    if(myBlocked.includes(p.uid))return false;
+    if(p.uid===myUid)return true;
+    // Vérifier l'accès catégorie
+    return canSeeAccess(p,myUid,users,allCats);
+  });
   const slideClass=stack.length>1?"s-in":"s-back";
   const isPublish=cur.id==="publish";
   const isProfile=cur.id==="profile";
