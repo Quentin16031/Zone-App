@@ -1058,6 +1058,9 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
   const [eVille,setEVille]=useState("");
   const [ePhoto,setEPhoto]=useState(null);
   const fileRef=useRef(null);
+  // ── SPLIT VIEW — hooks AVANT tout return conditionnel (Rules of Hooks)
+  const [selectedPostId,setSelectedPostId]=useState(null);
+  const profileMapRef=useRef(null);
 
   const mine=useMemo(()=>posts.filter(p=>p.uid===uid),[posts,uid]);
   const photos=mine.filter(p=>p.photo);
@@ -1098,10 +1101,6 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
   // Icône accès catégorie
   const accIcon=a=>a==="public"?"🌍":a==="private"?"🔒":"👥";
   const accColor=a=>a==="public"?"var(--green)":a==="private"?"var(--text3)":"#378ADD";
-
-  // ── SPLIT VIEW : état post sélectionné bidirectionnel
-  const [selectedPostId,setSelectedPostId]=useState(null);
-  const profileMapRef=useRef(null);
 
   const handleSelectPhoto=(p)=>{
     setSelectedPostId(prev=>prev===p.id?null:p.id);
