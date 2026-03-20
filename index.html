@@ -1105,16 +1105,9 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
     h("div",{style:{position:"relative",height:100,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,overflow:"hidden",flexShrink:0}},
       // Motif hachures
       h("div",{style:{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(45deg,rgba(255,255,255,0.05) 0px,rgba(255,255,255,0.05) 1px,transparent 1px,transparent 9px)",pointerEvents:"none"}}),
-      // Bouton retour (gauche) — toujours visible sauf si profil racine de soi-même
-      !isSelf&&h("button",{onClick:onBack,style:{position:"absolute",top:"max(env(safe-area-inset-top,14px),14px)",left:14,width:32,height:32,borderRadius:10,background:"rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"0.5px solid rgba(255,255,255,0.35)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:5}},
+      // Bouton retour ← toujours visible (option A)
+      h("button",{onClick:onBack,style:{position:"absolute",top:"max(env(safe-area-inset-top,14px),14px)",left:14,width:32,height:32,borderRadius:10,background:"rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"0.5px solid rgba(255,255,255,0.35)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:5}},
         h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"rgba(255,255,255,0.95)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
-      ),
-      // Bouton settings (droite) — seulement pour soi
-      isSelf&&h("button",{onClick:()=>setEditMode(true),style:{position:"absolute",top:"max(env(safe-area-inset-top,14px),14px)",right:14,width:32,height:32,borderRadius:10,background:"rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"0.5px solid rgba(255,255,255,0.35)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:5}},
-        h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"rgba(255,255,255,0.95)",strokeWidth:2},
-          h("circle",{cx:12,cy:12,r:3}),
-          h("path",{d:"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"})
-        )
       )
     ),
 
@@ -1309,6 +1302,7 @@ function App(){
   const visiblePosts=posts.filter(p=>!myBlocked.includes(p.uid));
   const slideClass=stack.length>1?"s-in":"s-back";
   const isPublish=cur.id==="publish";
+  const isProfile=cur.id==="profile";
   const isMapRoot=cur.id==="map"&&isRoot;
 
   // Tab bar 2 onglets + pill Publier centrale
@@ -1593,7 +1587,7 @@ function App(){
       cur.id==="cats"&&h(CatsScreen,{myUid,cats:myCats,onBack:pop,onEditAccess:id=>push({id:"access",catId:id})}),
       cur.id==="access"&&myCats.find(c=>c.id===cur.catId)&&h(AccessScreen,{cat:myCats.find(c=>c.id===cur.catId),myUid,users,onBack:pop})
     ),
-    !isMapRoot&&!isPublish&&h(TabBar)
+    !isMapRoot&&!isPublish&&!isProfile&&h(TabBar)
   );
 }
 
