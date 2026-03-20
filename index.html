@@ -219,6 +219,8 @@ const pushPost=(uid,data)=>db.ref('posts').push({...data,uid,ts:Date.now()});
 const patchPost=(id,d)=>db.ref('posts/'+id).update(d);
 const rmPost=id=>db.ref('posts/'+id).remove();
 const toggleLike=(id,uid,has)=>db.ref(`posts/${id}/likes/${uid}`).set(has?null:true);
+const addComment=(postId,uid,text)=>db.ref(`comments/${postId}`).push({uid,text,ts:Date.now()});
+const rmComment=(postId,cid)=>db.ref(`comments/${postId}/${cid}`).remove();
 const saveProfile=(uid,d)=>db.ref('users/'+uid).update(d);
 const toggleFollow=(myUid,tid,isF)=>db.ref(`users/${myUid}/following/${tid}`).set(isF?null:true);
 const doBlock=(myUid,tid)=>{db.ref(`users/${myUid}/blocked/${tid}`).set(true);db.ref(`users/${myUid}/following/${tid}`).remove();};
@@ -376,8 +378,32 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
   const [edTxt,setEdTxt]=useState(post.text||"");
   const [del,setDel]=useState(false);
   const [changeCat,setChangeCat]=useState(false);
+  const [showComments,setShowComments]=useState(false);
+  const [comments,setComments]=useState([]);
+  const [newComment,setNewComment]=useState("");
+  const [sendingComment,setSendingComment]=useState(false);
   const liked=!!(post.likes&&post.likes[myUid]);
-  const likeCount=post.likes?Object.keys(post.likes).length:0;
+  const likeCount=post.likes?Object.keys(post.likes).filter(k=>post.likes[k]).length:0;
+
+  useEffect(()=>{
+    if(!showComments)return;
+    const ref=db.ref(`comments/${post.id}`);
+    const handler=snap=>{
+      const d=snap.val()||{};
+      setComments(Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>a.ts-b.ts));
+    };
+    ref.on('value',handler);
+    return()=>ref.off('value',handler);
+  },[showComments,post.id]);
+
+  const submitComment=async()=>{
+    const txt=newComment.trim();
+    if(!txt||sendingComment)return;
+    setSendingComment(true);
+    await addComment(post.id,myUid,txt);
+    setNewComment("");
+    setSendingComment(false);
+  };
 
   return h("div",{style:{background:"#fff",borderRadius:"var(--rl)",margin:"0 16px 12px",boxShadow:"var(--shadow)",overflow:"hidden"},onClick:()=>menu&&setMenu(false)},
     vis&&post.photo&&h("div",{onClick:()=>onViewPhoto&&onViewPhoto(post),style:{width:"100%",overflow:"hidden",cursor:"zoom-in"}},
@@ -431,19 +457,57 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete,onViewPhot
       ),
       !ed&&!del&&!changeCat&&(vis
         ?h("div",null,
-            post.text&&h("p",{style:{fontSize:14,margin:"0 0 10px",lineHeight:1.65}},post.text),
-            h("button",{onClick:()=>toggleLike(post.id,myUid,liked),style:{background:"transparent",border:"none",cursor:"pointer",padding:0,fontSize:13,color:liked?"#E24B4A":"var(--text3)",display:"flex",alignItems:"center",gap:4}},
-              h("span",{style:{fontSize:15}},liked?"❤️":"🤍"),likeCount)
+            post.text&&h("p",{style:{fontSize:14,margin:"0 0 12px",lineHeight:1.65}},post.text),
+            h("div",{style:{display:"flex",alignItems:"center",gap:16,borderTop:"0.5px solid var(--border)",paddingTop:10}},
+              h("button",{onClick:e=>{e.stopPropagation();toggleLike(post.id,myUid,liked);},style:{background:"transparent",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:5,color:liked?"var(--red)":"var(--text3)"}},
+                h("span",{style:{fontSize:17}},liked?"❤️":"🤍"),
+                h("span",{style:{fontSize:13,fontWeight:liked?600:400}},likeCount||"")
+              ),
+              h("button",{onClick:e=>{e.stopPropagation();setShowComments(v=>!v);},style:{background:"transparent",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:5,color:showComments?"var(--green)":"var(--text3)"}},
+                h("svg",{width:17,height:17,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"})),
+                h("span",{style:{fontSize:13,fontWeight:showComments?600:400}},comments.length||"")
+              )
+            )
           )
         :h("div",null,
             h("div",{style:{display:"flex",flexDirection:"column",gap:5,marginBottom:6}},[88,70,50].map(w=>h("div",{key:w,style:{height:10,background:"var(--bg2)",borderRadius:4,width:w+"%"}}))),
             h("div",{style:{fontSize:12,color:"var(--text2)"}},gps?`🔒 Encore ${fmtD(d-post.radius)} pour débloquer`:"🔒 Activez le GPS pour débloquer")
           )
+      ),
+      showComments&&vis&&h("div",{style:{borderTop:"0.5px solid var(--border)",paddingTop:12,marginTop:4}},
+        comments.length>0&&h("div",{style:{display:"flex",flexDirection:"column",gap:10,marginBottom:12}},
+          comments.map(c=>{
+            const cu=users[c.uid];
+            const isOwn=c.uid===myUid;
+            return h("div",{key:c.id,style:{display:"flex",gap:8,alignItems:"flex-start"}},
+              h("div",{style:{flexShrink:0}},h(Av,{photo:cu?.photo,pseudo:cu?.pseudo||"?",sz:28,hue:uidHue(c.uid)})),
+              h("div",{style:{flex:1,background:"var(--bg2)",borderRadius:12,padding:"7px 10px"}},
+                h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:2}},
+                  h("span",{style:{fontSize:12,fontWeight:600,color:"var(--text)"}},cu?.pseudo||"…"),
+                  h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                    h("span",{style:{fontSize:11,color:"var(--text3)"}},fmtDate(c.ts)),
+                    isOwn&&h("button",{onClick:()=>rmComment(post.id,c.id),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:12,color:"var(--text3)",padding:0,lineHeight:1}},"×")
+                  )
+                ),
+                h("p",{style:{fontSize:13,color:"var(--text)",margin:0,lineHeight:1.5}},c.text)
+              )
+            );
+          })
+        ),
+        comments.length===0&&h("div",{style:{fontSize:13,color:"var(--text3)",textAlign:"center",marginBottom:12}},"Sois le premier à commenter 👋"),
+        h("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+          h(Av,{photo:users[myUid]?.photo,pseudo:users[myUid]?.pseudo||"?",sz:28,hue:uidHue(myUid)}),
+          h("div",{style:{flex:1,display:"flex",gap:6,alignItems:"center",background:"var(--bg2)",borderRadius:20,padding:"6px 6px 6px 12px"}},
+            h("input",{value:newComment,onChange:e=>setNewComment(e.target.value),onKeyDown:e=>e.key==="Enter"&&!e.shiftKey&&submitComment(),placeholder:"Ajouter un commentaire…",style:{flex:1,background:"transparent",border:"none",fontSize:13,color:"var(--text)",outline:"none"}}),
+            h("button",{onClick:submitComment,disabled:!newComment.trim()||sendingComment,style:{width:30,height:30,borderRadius:"50%",border:"none",cursor:newComment.trim()?"pointer":"default",background:newComment.trim()?"var(--green)":"transparent",color:newComment.trim()?"#fff":"var(--text3)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}},
+              h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2.5},h("line",{x1:22,y1:2,x2:11,y2:13}),h("polygon",{points:"22 2 15 22 11 13 2 9 22 2"}))
+            )
+          )
+        )
       )
     )
   );
 }
-
 // ── PHOTO SCREEN ──────────────────────────────────────────
 function PhotoScreen({post,myUid,gps,users,onBack}){
   const vis=canSee(post,myUid,gps);
