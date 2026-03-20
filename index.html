@@ -102,12 +102,6 @@ function compressImg(file){
   });
 }
 
-function gpsToSvg(uLat,uLng,lat,lng,mpu){
-  const dlat=(lat-uLat)*(Math.PI/180)*6371000;
-  const dlng=(lng-uLng)*(Math.PI/180)*6371000*Math.cos(uLat*Math.PI/180);
-  return{x:50+dlng/mpu,y:50-dlat/mpu};
-}
-
 const canSee=(p,uid,gps)=>p.uid===uid||(gps&&haversine(gps.lat,gps.lng,p.lat,p.lng)<=p.radius);
 const aLbl=a=>a==="public"?{icon:"🌍",label:"Tout le monde",c:"#1D9E75",bg:"#E1F5EE"}:a==="private"?{icon:"🔒",label:"Moi seul",c:"#888",bg:"#f1efe8"}:{icon:"👥",label:`${Object.keys((a&&a.custom)||{}).length} abonné(s)`,c:"#378ADD",bg:"#E6F1FB"};
 
@@ -528,221 +522,6 @@ function RadiusMap({gps,radius,height=140,onMapReady=null}){
   return h("div",{ref:mapRef,style:{height,borderRadius:"var(--rl)",overflow:"hidden",border:"0.5px solid var(--border)"}});
 }
 
-// ── BEREAL CAMERA ──────────────────────────────────────────
-function BeRealCamera({onCapture,onCancel,gps}){
-  const [status,setStatus]=useState("init"); // init | loading | ready | countdown | error
-  const [countdown,setCountdown]=useState(3);
-  const [hasFront,setHasFront]=useState(false);
-  const [errMsg,setErrMsg]=useState("");
-  const backStreamRef=useRef(null);
-  const frontStreamRef=useRef(null);
-  const backVideoRef=useRef(null);
-  const frontVideoRef=useRef(null);
-  const frontPreviewRef=useRef(null);
-
-  const stopAll=()=>{
-    backStreamRef.current?.getTracks().forEach(t=>t.stop());
-    frontStreamRef.current?.getTracks().forEach(t=>t.stop());
-  };
-
-  // Callback refs — assignent srcObject dès que le DOM est prêt
-  const setBackRef=useCallback(el=>{
-    backVideoRef.current=el;
-    if(el&&backStreamRef.current){
-      el.srcObject=backStreamRef.current;
-      el.play().catch(()=>{});
-    }
-  },[]);
-
-  const setFrontRef=useCallback(el=>{
-    frontVideoRef.current=el;
-    if(el&&frontStreamRef.current){
-      el.srcObject=frontStreamRef.current;
-      el.play().catch(()=>{});
-    }
-  },[]);
-
-  const setFrontPreviewRef=useCallback(el=>{
-    frontPreviewRef.current=el;
-    if(el&&frontStreamRef.current){
-      el.srcObject=frontStreamRef.current;
-      el.play().catch(()=>{});
-    }
-  },[]);
-
-  useEffect(()=>{
-    let alive=true;
-    const start=async()=>{
-      setStatus("loading");
-      // Caméra arrière
-      let backStream=null;
-      const constraints=[
-        {video:{facingMode:{exact:"environment"}},audio:false},
-        {video:{facingMode:"environment"},audio:false},
-        {video:true,audio:false}
-      ];
-      for(const c of constraints){
-        try{backStream=await navigator.mediaDevices.getUserMedia(c);break;}
-        catch(e){continue;}
-      }
-      if(!backStream||!alive){
-        if(alive)setErrMsg("Caméra non disponible. Vérifie les autorisations dans Réglages > Safari > Caméra.");
-        if(alive)setStatus("error");
-        return;
-      }
-      backStreamRef.current=backStream;
-      // Assigner au video si déjà monté
-      if(backVideoRef.current){
-        backVideoRef.current.srcObject=backStream;
-        backVideoRef.current.play().catch(()=>{});
-      }
-      // Caméra avant (optionnelle)
-      try{
-        const f=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});
-        if(!alive){f.getTracks().forEach(t=>t.stop());return;}
-        frontStreamRef.current=f;
-        if(frontVideoRef.current){frontVideoRef.current.srcObject=f;frontVideoRef.current.play().catch(()=>{});}
-        if(frontPreviewRef.current){frontPreviewRef.current.srcObject=f;frontPreviewRef.current.play().catch(()=>{});}
-        setHasFront(true);
-      }catch(e){/* caméra avant non dispo, on continue */}
-      if(alive)setStatus("ready");
-    };
-    start();
-    return()=>{alive=false;stopAll();};
-  },[]);
-
-  const doCapture=()=>{
-    setStatus("countdown");
-    let c=3;setCountdown(c);
-    const iv=setInterval(()=>{
-      c--;
-      if(c>0){setCountdown(c);}
-      else{
-        clearInterval(iv);
-        setStatus("ready");
-        doShoot();
-      }
-    },1000);
-  };
-
-  const doShoot=()=>{
-    const back=backVideoRef.current;
-    if(!back||back.videoWidth===0){
-      // Fallback: essaie quand même
-      setTimeout(()=>{
-        const b=backVideoRef.current;
-        if(!b)return;
-        shoot(b);
-      },500);
-      return;
-    }
-    shoot(back);
-  };
-
-  const shoot=(back)=>{
-    const bW=back.videoWidth||640,bH=back.videoHeight||480;
-    const cv=document.createElement('canvas');cv.width=bW;cv.height=bH;
-    const ctx=cv.getContext('2d');
-    ctx.drawImage(back,0,0,bW,bH);
-    const front=frontVideoRef.current;
-    if(hasFront&&front&&front.videoWidth>0){
-      const fW=front.videoWidth,fH=front.videoHeight;
-      const pw=Math.round(bW*0.30),ph=Math.round(fH/fW*pw);
-      const px=bW-pw-16,py=bH-ph-16,r=12;
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(px+r,py);ctx.arcTo(px+pw,py,px+pw,py+ph,r);
-      ctx.arcTo(px+pw,py+ph,px,py+ph,r);ctx.arcTo(px,py+ph,px,py,r);
-      ctx.arcTo(px,py,px+pw,py,r);ctx.closePath();ctx.clip();
-      ctx.drawImage(front,0,0,fW,fH,px,py,pw,ph);
-      ctx.restore();
-      ctx.strokeStyle='#fff';ctx.lineWidth=3;
-      ctx.beginPath();
-      ctx.moveTo(px+r,py);ctx.arcTo(px+pw,py,px+pw,py+ph,r);
-      ctx.arcTo(px+pw,py+ph,px,py+ph,r);ctx.arcTo(px,py+ph,px,py,r);
-      ctx.arcTo(px,py,px+pw,py,r);ctx.closePath();ctx.stroke();
-    }
-    onCapture(cv.toDataURL('image/jpeg',0.85),gps);
-  };
-
-  // Écran d'erreur
-  if(status==="error") return h("div",{style:{
-    position:"fixed",inset:0,background:"#111",zIndex:200,
-    display:"flex",flexDirection:"column",alignItems:"center",
-    justifyContent:"center",padding:32,textAlign:"center"
-  }},
-    h("div",{style:{fontSize:48,marginBottom:16}},"📷"),
-    h("div",{style:{color:"#fff",fontSize:15,lineHeight:1.7,marginBottom:24}},errMsg),
-    h("div",{style:{fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:24}},"Réglages → Safari → Caméra → Autoriser"),
-    h("button",{onClick:onCancel,style:{padding:"12px 28px",background:"#fff",border:"none",borderRadius:24,fontSize:14,fontWeight:600,cursor:"pointer"}},"Retour")
-  );
-
-  // Overlay caméra
-  return h("div",{style:{position:"fixed",inset:0,background:"#000",zIndex:200,overflow:"hidden"}},
-    // Vidéo arrière plein écran
-    h("video",{
-      ref:setBackRef,
-      style:{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"},
-      playsInline:true,muted:true,autoPlay:true
-    }),
-    // Vidéo avant cachée (pour capture canvas)
-    h("video",{
-      ref:setFrontRef,
-      style:{position:"absolute",width:1,height:1,opacity:0,pointerEvents:"none"},
-      playsInline:true,muted:true,autoPlay:true
-    }),
-    // Preview caméra avant
-    hasFront&&h("div",{style:{
-      position:"absolute",bottom:130,right:16,
-      width:90,height:120,borderRadius:14,
-      overflow:"hidden",border:"3px solid #fff",
-      boxShadow:"0 4px 20px rgba(0,0,0,0.6)"
-    }},
-      h("video",{
-        ref:setFrontPreviewRef,
-        style:{width:"100%",height:"100%",objectFit:"cover",transform:"scaleX(-1)"},
-        playsInline:true,muted:true,autoPlay:true
-      })
-    ),
-    // Décompte
-    status==="countdown"&&h("div",{style:{
-      position:"absolute",inset:0,display:"flex",
-      alignItems:"center",justifyContent:"center",
-      fontSize:120,color:"#fff",fontWeight:800,
-      textShadow:"0 4px 24px rgba(0,0,0,0.7)"
-    }},countdown),
-    // Loading
-    status==="loading"&&h("div",{style:{
-      position:"absolute",inset:0,display:"flex",
-      alignItems:"center",justifyContent:"center",
-      flexDirection:"column",gap:12
-    }},
-      h("div",{style:{color:"#fff",fontSize:14}},"Initialisation de la caméra…")
-    ),
-    // Contrôles bas
-    h("div",{style:{
-      position:"absolute",bottom:40,left:0,right:0,
-      display:"flex",alignItems:"center",justifyContent:"center",gap:40
-    }},
-      h("button",{onClick:()=>{stopAll();onCancel();},style:{
-        padding:"11px 22px",background:"rgba(255,255,255,0.2)",
-        border:"1.5px solid rgba(255,255,255,0.5)",
-        borderRadius:24,color:"#fff",fontSize:14,cursor:"pointer"
-      }},"Annuler"),
-      status==="ready"&&h("button",{onClick:doCapture,style:{
-        width:72,height:72,borderRadius:"50%",background:"#fff",
-        border:"5px solid rgba(255,255,255,0.5)",cursor:"pointer",flexShrink:0,
-        boxShadow:"0 4px 20px rgba(0,0,0,0.4)"
-      }})
-    ),
-    // Label haut
-    h("div",{style:{
-      position:"absolute",top:50,left:0,right:0,
-      textAlign:"center",color:"rgba(255,255,255,0.9)",
-      fontSize:13,fontWeight:500
-    }},hasFront?"📸 Avant + Arrière":"📸 Photo")
-  );
-}
 
 // ── EXIF GPS MANUEL ───────────────────────────────────────
 function readExifGpsManual(file){
@@ -814,125 +593,7 @@ function readExifGpsManual(file){
 }
 
 // ── CARTE ZONE UNIQUE (pour l'étape de définition du rayon) ─
-function ZoneMapSingle({gps,radius}){
-  const mapRef=useRef(null);
-  const leafRef=useRef(null);
-  const circleRef=useRef(null);
 
-  useEffect(()=>{
-    if(!mapRef.current||leafRef.current||!gps)return;
-    // Petit délai pour que le DOM ait sa hauteur finale sur iOS
-    const init=()=>{
-      if(!mapRef.current)return;
-      const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView([gps.lat,gps.lng],15);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
-      L.control.zoom({position:'topright'}).addTo(map);
-      const icon=L.divIcon({className:'',html:`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`,iconSize:[28,38],iconAnchor:[14,38]});
-      L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
-      circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.13}).addTo(map);
-      leafRef.current=map;
-      // Force recalcul taille après rendu
-      setTimeout(()=>{map.invalidateSize();},100);
-    };
-    const t=setTimeout(init,50);
-    return()=>{clearTimeout(t);if(leafRef.current){leafRef.current.remove();leafRef.current=null;circleRef.current=null;}};
-  },[gps?.lat,gps?.lng]);
-
-  useEffect(()=>{
-    if(!leafRef.current||!circleRef.current||!gps)return;
-    circleRef.current.setRadius(radius);
-    // Pas de setView ici — l'utilisateur doit pouvoir naviguer librement
-  },[radius]);
-
-  if(!gps) return h("div",{style:{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"var(--text3)",fontSize:14}},"⚠️ GPS non disponible");
-  return h("div",{ref:mapRef,style:{position:"absolute",inset:0}});
-}
-
-// ── ZONE PICKER SCREEN ────────────────────────────────────
-// Composant autonome : gère sa propre carte Leaflet + overlays
-// Rendu en position:fixed fullscreen, les overlays sont dans le même flux DOM
-function ZonePickerScreen({gps,radius,onRadiusChange,onConfirm,onBack,fR}){
-  const mapDivRef=useRef(null);
-  const leafRef=useRef(null);
-  const circleRef=useRef(null);
-
-  // Init carte une seule fois
-  useEffect(()=>{
-    if(!mapDivRef.current||leafRef.current||!gps)return;
-    const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
-    const map=L.map(mapDivRef.current,{
-      zoomControl:false,attributionControl:false,
-      dragging:true,scrollWheelZoom:true,
-      doubleClickZoom:true,touchZoom:true
-    }).setView([gps.lat,gps.lng],zoom);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
-    L.control.zoom({position:'topright'}).addTo(map);
-    const icon=L.divIcon({className:'',html:`<svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 37C14 37 1 23 1 13A13 13 0 1 1 27 13C27 23 14 37 14 37Z" fill="#1D9E75" stroke="white" stroke-width="2"/><circle cx="14" cy="12" r="5" fill="white"/></svg>`,iconSize:[28,38],iconAnchor:[14,38]});
-    L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
-    circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2.5,fillColor:"#1D9E75",fillOpacity:0.13}).addTo(map);
-    leafRef.current=map;
-    return()=>{map.remove();leafRef.current=null;circleRef.current=null;};
-  },[]);
-
-  // Mettre à jour le cercle quand radius change — pas de recentrage
-  useEffect(()=>{
-    if(!leafRef.current||!circleRef.current||!gps)return;
-    circleRef.current.setRadius(radius);
-  },[radius]);
-
-  // La carte remplit tout l'écran via une div absolue
-  // Les overlays sont positionnés par-dessus avec z-index élevé
-  return h("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:200}},
-    // Carte en fond absolu
-    h("div",{ref:mapDivRef,style:{position:"absolute",top:0,left:0,right:0,bottom:0}}),
-    // Bouton retour — coin haut gauche
-    h("button",{
-      onClick:onBack,
-      style:{
-        position:"absolute",top:54,left:16,zIndex:300,
-        width:42,height:42,borderRadius:12,
-        background:"#fff",border:"none",cursor:"pointer",
-        display:"flex",alignItems:"center",justifyContent:"center",
-        boxShadow:"0 2px 16px rgba(0,0,0,0.25)"
-      }
-    },h("svg",{width:20,height:20,viewBox:"0 0 24 24",fill:"none",stroke:"#0D1117",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))),
-    // Badge rayon — coin haut droit
-    h("div",{style:{
-      position:"absolute",top:56,right:16,zIndex:300,
-      padding:"9px 18px",background:"#fff",
-      borderRadius:24,boxShadow:"0 2px 16px rgba(0,0,0,0.25)"
-    }},h("span",{style:{fontSize:16,fontWeight:800,color:"#1D9E75"}},fR(radius))),
-    // Îlot bas — slider + bouton confirmer
-    h("div",{style:{
-      position:"absolute",bottom:48,left:16,right:16,zIndex:300,
-      background:"#fff",borderRadius:22,
-      padding:"18px 20px 18px",
-      boxShadow:"0 8px 40px rgba(0,0,0,0.22)"
-    }},
-      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
-        h("span",{style:{fontSize:14,fontWeight:600,color:"#0D1117"}},"Zone de visibilité"),
-        h("span",{style:{fontSize:14,fontWeight:800,color:"#1D9E75"}},fR(radius))
-      ),
-      h("input",{
-        type:"range",min:50,max:5000,step:50,value:radius,
-        onChange:e=>onRadiusChange(Number(e.target.value)),
-        style:{width:"100%",accentColor:"#1D9E75",marginBottom:8}
-      }),
-      h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:16,fontSize:11,color:"#9CA3AF"}},
-        h("span",null,"50 m"),h("span",null,"2,5 km"),h("span",null,"5 km")
-      ),
-      h("button",{
-        onClick:onConfirm,
-        style:{
-          width:"100%",padding:15,fontSize:15,fontWeight:700,
-          background:"#1D9E75",color:"#fff",border:"none",
-          borderRadius:14,cursor:"pointer",
-          boxShadow:"0 4px 20px rgba(29,158,117,0.4)"
-        }
-      },"✓ Confirmer cette zone")
-    )
-  );
-}
 
 // ── PUBLICATION ───────────────────────────────────────────
 function PublishScreen({myUid,gps,cats,onBack}){
@@ -945,7 +606,6 @@ function PublishScreen({myUid,gps,cats,onBack}){
   const [zoneConfirmed,setZoneConfirmed]=useState(false);
   const [sel,setSel]=useState(null);
   const [saving,setSaving]=useState(false);
-  const leafZoneRef=useRef(null);
   const fileRef=useRef(null);
   const sC=cats.find(c=>c.id===sel);
   const lb=sC?aLbl(sC.access):null;
@@ -1526,13 +1186,12 @@ function App(){
   const [myCats,setMyCats]=useState([]);
   const [gps,setGps]=useState(null);
   const [stack,setStack]=useState([{id:"feed"}]);
-  const [mapPin,setMapPin]=useState(false);
   const [signLoading,setSignLoading]=useState(false);
   const [signError,setSignError]=useState(false);
 
   const push=s=>setStack(p=>[...p,s]);
   const pop=()=>setStack(p=>p.length>1?p.slice(0,-1):p);
-  const goRoot=id=>{setStack([{id}]);setMapPin(false);};
+  const goRoot=id=>setStack([{id}]);
   const cur=stack[stack.length-1];
   const isRoot=stack.length===1;
   const activeTab=isRoot?cur.id:null;
