@@ -1448,18 +1448,27 @@ function App(){
     if(!authUser)return;
     const pRef=db.ref('posts');
     const uRef=db.ref('users');
-    const cRef=db.ref('categories');
+    // categories/uid : mes cats (règles Firebase = own only en écriture, auth en lecture par uid)
+    const cRef=db.ref('categories/'+authUser.uid);
+    // allCatsRef : on écoute chaque auteur de post séparément via posts listener
     const onP=snap=>{
       const d=snap.val()||{};
       const arr=Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>b.ts-a.ts);
       setPosts(arr);
+      // Charger les cats de tous les auteurs des posts
+      const uids=[...new Set(arr.map(p=>p.uid).filter(u=>u!==authUser.uid))];
+      uids.forEach(uid=>{
+        db.ref('categories/'+uid).once('value').then(snap=>{
+          const d=snap.val()||{};
+          setAllCats(prev=>({...prev,[uid]:d}));
+        }).catch(()=>{});
+      });
     };
     const onU=snap=>setUsers(snap.val()||{});
     const onC=snap=>{
       const d=snap.val()||{};
-      setAllCats(d);
-      const mine=d[authUser.uid]||{};
-      setMyCats(Object.entries(mine).map(([id,v])=>({id,...v})));
+      setMyCats(Object.entries(d).map(([id,v])=>({id,...v})));
+      setAllCats(prev=>({...prev,[authUser.uid]:d}));
     };
     pRef.on('value',onP);uRef.on('value',onU);cRef.on('value',onC);
     return()=>{pRef.off('value',onP);uRef.off('value',onU);cRef.off('value',onC);};
