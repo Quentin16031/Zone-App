@@ -1099,32 +1099,46 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
   const accIcon=a=>a==="public"?"🌍":a==="private"?"🔒":"👥";
   const accColor=a=>a==="public"?"var(--green)":a==="private"?"var(--text3)":"#378ADD";
 
-  return h("div",{style:{paddingBottom:120,background:"var(--bg3)",minHeight:"100vh"}},
+  // ── SPLIT VIEW : état post sélectionné bidirectionnel
+  const [selectedPostId,setSelectedPostId]=useState(null);
+  const profileMapRef=useRef(null);
 
-    // ① COVER + boutons dans la cover
+  const handleSelectPhoto=(p)=>{
+    setSelectedPostId(prev=>prev===p.id?null:p.id);
+    if(profileMapRef.current&&p.lat&&p.lng){
+      profileMapRef.current.flyTo([p.lat,p.lng],15,{duration:0.5});
+    }
+  };
+  const handleSelectMarker=(p)=>{
+    setSelectedPostId(prev=>prev===p.id?null:p.id);
+  };
+
+  // Photos filtrées par catégorie (pour la grille et la carte)
+  const photosFiltered=photos.filter(p=>catFilter==="all"||p.cat===catFilter);
+  const postsForMap=mine.filter(p=>p.lat&&p.lng&&(catFilter==="all"||p.cat===catFilter));
+
+  return h("div",{style:{paddingBottom:80,background:"var(--bg3)",minHeight:"100vh"}},
+
+    // ① COVER
     h("div",{style:{position:"relative",height:100,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,overflow:"hidden",flexShrink:0}},
-      // Motif hachures
       h("div",{style:{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(45deg,rgba(255,255,255,0.05) 0px,rgba(255,255,255,0.05) 1px,transparent 1px,transparent 9px)",pointerEvents:"none"}}),
-      // Bouton retour ← toujours visible (option A)
       h("button",{onClick:onBack,style:{position:"absolute",top:"max(env(safe-area-inset-top,14px),14px)",left:14,width:32,height:32,borderRadius:10,background:"rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"0.5px solid rgba(255,255,255,0.35)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:5}},
         h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"rgba(255,255,255,0.95)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
       )
     ),
 
-    // ② PROFIL INFO — fond blanc, avatar qui flotte sur la cover
+    // ② PROFIL INFO
     h("div",{style:{background:"#fff",padding:"0 16px 16px"}},
-      // Avatar elevated
       u.photo
         ?h("img",{src:u.photo,style:{width:58,height:58,borderRadius:18,objectFit:"cover",border:"3px solid #fff",marginTop:-29,boxShadow:`0 4px 16px ${coverColor}44`,display:"block",position:"relative",zIndex:2}})
         :h("div",{style:{width:58,height:58,borderRadius:18,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,border:"3px solid #fff",marginTop:-29,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:900,color:"#fff",boxShadow:`0 4px 16px ${coverColor}44`,position:"relative",zIndex:2}},(u.pseudo||"?").slice(0,2).toUpperCase()),
 
-      // Nom + bio + ville
       h("div",{style:{fontSize:20,fontWeight:900,color:"var(--text)",letterSpacing:"-0.04em",marginTop:8,lineHeight:1.1}},u.pseudo||"Utilisateur"),
       (u.bio||u.ville)&&h("div",{style:{fontSize:13,color:"var(--text2)",marginTop:5,lineHeight:1.5}},
         [u.ville&&`📍 ${u.ville}`,u.bio].filter(Boolean).join(" · ")
       ),
 
-      // ② STATS STRIP
+      // STATS
       h("div",{style:{display:"flex",borderRadius:14,overflow:"hidden",background:"var(--bg2)",margin:"12px 0"}},
         h("div",{style:{flex:1,padding:"10px 4px",textAlign:"center",cursor:"default"}},
           h("div",{style:{fontSize:18,fontWeight:900,color:"var(--text)",letterSpacing:"-0.02em"}},mine.length),
@@ -1156,7 +1170,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
               )
             ),
 
-      // ③ CATÉGORIES — seulement pour soi, intégrées dans le fond blanc
+      // CATÉGORIES — filtre
       isSelf&&cats.length>0&&h("div",{style:{marginTop:16}},
         h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
           h("span",{style:{fontSize:13,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}},"Catégories"),
@@ -1167,8 +1181,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
             const postCount=mine.filter(p=>p.cat===c.id).length;
             const isActive=catFilter===c.id;
             const acc=c.access||"public";
-            return h("div",{key:c.id,onClick:()=>setCatFilter(isActive?"all":c.id),style:{flexShrink:0,background:"#fff",borderRadius:14,padding:"10px 12px",minWidth:76,textAlign:"center",boxShadow:isActive?`0 0 0 2px var(--green),var(--shadow)`:"var(--shadow)",cursor:"pointer",position:"relative",overflow:"hidden"}},
-              // Badge compteur
+            return h("div",{key:c.id,onClick:()=>{setCatFilter(isActive?"all":c.id);setSelectedPostId(null);},style:{flexShrink:0,background:"#fff",borderRadius:14,padding:"10px 12px",minWidth:76,textAlign:"center",boxShadow:isActive?`0 0 0 2px var(--green),var(--shadow)`:"var(--shadow)",cursor:"pointer",position:"relative",overflow:"hidden"}},
               h("div",{style:{position:"absolute",top:5,right:5,background:isActive?"var(--green)":acc==="private"?"var(--text3)":acc==="public"?"var(--green)":"#378ADD",color:"#fff",fontSize:8,fontWeight:700,borderRadius:5,padding:"1px 4px",lineHeight:1.4}},postCount),
               h("div",{style:{fontSize:22,marginBottom:5}},c.emoji),
               h("div",{style:{fontSize:10,fontWeight:700,color:"var(--text)"}},c.name),
@@ -1176,34 +1189,71 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
             );
           })
         )
-      ),
-
-      // ④ TOGGLE Posts / Carte — intégré dans le fond blanc
-      h("div",{style:{marginTop:16,background:"var(--bg2)",borderRadius:12,padding:3,display:"flex",gap:3}},
-        [{id:"posts",l:"Posts"},{id:"map",l:"Carte"}].map(tab=>
-          h("button",{key:tab.id,onClick:()=>setCatFilter(catFilter==="mapview"&&tab.id==="map"?"all":tab.id==="map"?"mapview":catFilter==="mapview"?"all":catFilter),style:{flex:1,padding:"9px",fontSize:13,fontWeight:700,background:catFilter!=="mapview"&&tab.id==="posts"||catFilter==="mapview"&&tab.id==="map"?"#fff":"transparent",color:catFilter!=="mapview"&&tab.id==="posts"||catFilter==="mapview"&&tab.id==="map"?"var(--text)":"var(--text3)",border:"none",borderRadius:10,cursor:"pointer",boxShadow:catFilter!=="mapview"&&tab.id==="posts"||catFilter==="mapview"&&tab.id==="map"?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all .15s"}},tab.l)
-        )
       )
     ),
 
-    // Map view
-    catFilter==="mapview"&&h("div",{style:{margin:"8px 0 0",overflow:"hidden"}},
-      h(ZoneMap,{posts:mine,gps,myUid,onPostClick:p=>onViewPhoto(p),users,showGpsPin:isSelf,showControls:false})
+    // ③ CARTE FIXE — hauteur fixe en px (règle Leaflet iOS)
+    postsForMap.length>0&&h("div",{style:{height:220,position:"relative",overflow:"hidden",borderTop:`2px solid ${coverColor}22`}},
+      h(ZoneMap,{
+        posts:postsForMap,
+        gps,
+        myUid,
+        users,
+        onSelectPost:handleSelectMarker,
+        selectedPostId,
+        onMapReady:m=>{ profileMapRef.current=m; }
+      }),
+      // Label flottant si un post est sélectionné
+      selectedPostId&&(()=>{
+        const sp=postsForMap.find(p=>p.id===selectedPostId);
+        if(!sp)return null;
+        return h("div",{style:{position:"absolute",bottom:10,left:"50%",transform:"translateX(-50%)",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(10px)",borderRadius:12,padding:"6px 12px 6px 8px",display:"flex",alignItems:"center",gap:8,boxShadow:"0 2px 12px rgba(0,0,0,0.12)",zIndex:10,whiteSpace:"nowrap",maxWidth:"80%"}},
+          sp.photo&&canSee(sp,myUid,gps)&&h("img",{src:sp.photo,style:{width:32,height:32,borderRadius:8,objectFit:"cover",flexShrink:0}}),
+          h("div",{style:{minWidth:0}},
+            h("div",{style:{fontSize:11,fontWeight:800,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis"}},sp.text||"📷 Photo"),
+            gps&&h("div",{style:{fontSize:10,color:"var(--green)",fontWeight:600}},fmtD(haversine(gps.lat,gps.lng,sp.lat,sp.lng)))
+          ),
+          h("button",{onClick:()=>setSelectedPostId(null),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:14,color:"var(--text3)",padding:0,flexShrink:0,lineHeight:1}},"×")
+        );
+      })()
+    ),
+    // Empty map state
+    postsForMap.length===0&&h("div",{style:{padding:"20px 16px",textAlign:"center",color:"var(--text3)",fontSize:13,background:"#fff",borderTop:`2px solid ${coverColor}22`}},
+      "Aucun post géolocalisé"
     ),
 
-    // ④ GRILLE PHOTOS — bord à bord, sans marges
-    catFilter!=="mapview"&&photos.length>0&&h("div",{style:{marginTop:2}},
+    // ④ HEADER grille — compteur + info sélection
+    h("div",{style:{background:"#fff",padding:"10px 14px 8px",display:"flex",alignItems:"center",justifyContent:"space-between",borderTop:"0.5px solid var(--border)"}},
+      h("span",{style:{fontSize:12,fontWeight:700,color:"var(--text)"}},(()=>{
+        const count=photosFiltered.length;
+        if(selectedPostId){return h("span",{style:{color:"var(--green)"}},"1 sélectionné — tap pour voir");}
+        return `${count} photo${count>1?"s":""}`;
+      })()),
+      selectedPostId&&h("button",{onClick:()=>setSelectedPostId(null),style:{fontSize:11,fontWeight:600,color:"var(--text3)",background:"transparent",border:"none",cursor:"pointer",padding:0}},"Tout afficher")
+    ),
+
+    // ④ GRILLE PHOTOS — bord à bord, bidirectionnelle
+    photos.length>0&&h("div",{style:{marginTop:1}},
       h("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:2}},
-        photos.filter(p=>catFilter==="all"||p.cat===catFilter).map(p=>{const vis=canSee(p,myUid,gps);
-          return h("div",{key:p.id,onClick:()=>onViewPhoto(p),style:{aspectRatio:"1",overflow:"hidden",background:"var(--bg2)",cursor:"pointer"}},
-            vis?h("img",{src:p.photo,style:{width:"100%",height:"100%",objectFit:"cover",display:"block"}}):h("div",{style:{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,background:hue+"10"}},"🔒")
+        photosFiltered.map(p=>{
+          const vis=canSee(p,myUid,gps);
+          const isSel=p.id===selectedPostId;
+          const dimmed=selectedPostId&&!isSel;
+          return h("div",{key:p.id,onClick:()=>vis?handleSelectPhoto(p):null,style:{aspectRatio:"1",overflow:"hidden",background:"var(--bg2)",cursor:vis?"pointer":"default",position:"relative",transition:"opacity .2s",opacity:dimmed?0.35:1}},
+            vis
+              ?h("img",{src:p.photo,style:{width:"100%",height:"100%",objectFit:"cover",display:"block"}})
+              :h("div",{style:{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,background:hue+"10"}},"🔒"),
+            // Bordure verte si sélectionné
+            isSel&&h("div",{style:{position:"absolute",inset:0,border:`2.5px solid var(--green)`,pointerEvents:"none"}}),
+            // Badge GPS sur les photos localisées
+            vis&&p.lat&&h("div",{style:{position:"absolute",bottom:4,left:4,background:isSel?"var(--green)":"rgba(0,0,0,0.45)",borderRadius:5,padding:"1px 5px",fontSize:7,fontWeight:700,color:"#fff",backdropFilter:"blur(4px)"}},"📍")
           );
         })
       )
     ),
 
-    // Text posts
-    catFilter!=="mapview"&&h("div",{style:{marginTop:8}},
+    // Posts texte (sans photo)
+    h("div",{style:{marginTop:8}},
       filteredPosts.filter(p=>!p.photo).length===0&&photos.length>0?null
       :filteredPosts.filter(p=>!p.photo).map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats,users,onAuthor:()=>{},onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id),onViewPhoto}))
     ),
