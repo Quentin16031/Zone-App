@@ -120,7 +120,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady})
     const center=gps?[gps.lat,gps.lng]:[48.8566,2.3522];
     const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView(center,14);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
-    L.control.zoom({position:'topright'}).addTo(map);
+    L.control.zoom({position:'bottomleft'}).addTo(map);
     leafRef.current=map;
     if(gps)centeredRef.current=true;
     if(onMapReady)onMapReady(map);
@@ -153,7 +153,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady})
       const hue=uidHue(p.uid);
       const ul=canSee(p,myUid,gps);
       const isSelected=p.id===selectedPostId;
-      const alpha=selectedPostId&&!isSelected?0.2:1;
+      const alpha=selectedPostId&&!isSelected?0.5:1;
       const circleColor=isSelected?"#1D9E75":hue;
       const circle=L.circle([p.lat,p.lng],{
         radius:p.radius,color:circleColor,weight:isSelected?2.5:1.5,
@@ -534,7 +534,7 @@ function RadiusMap({gps,radius,height=140,onMapReady=null}){
     // Exactement comme ZoneMap : zoomControl:false puis L.control.zoom() séparé
     const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView([gps.lat,gps.lng],zoom);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
-    L.control.zoom({position:'topright'}).addTo(map);
+    L.control.zoom({position:'bottomleft'}).addTo(map);
     const icon=L.divIcon({className:'',html:'<svg width="20" height="26" viewBox="0 0 20 26"><path d="M10 26C10 26 1 16 1 9A9 9 0 1 1 19 9C19 16 10 26 10 26Z" fill="#1D9E75" stroke="white" stroke-width="1.5"/><circle cx="10" cy="9" r="3.5" fill="white"/></svg>',iconSize:[20,26],iconAnchor:[10,26]});
     L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
     circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.13}).addTo(map);
@@ -1327,7 +1327,7 @@ function App(){
 
   const handleSelectPost=(p)=>{
     setSelectedPost(p);
-    setSheetOpen(true);
+    setSheetOpen("md");
     if(leafMapRef.current&&p.lat&&p.lng){
       leafMapRef.current.flyTo([p.lat,p.lng],16,{duration:0.6});
     }
@@ -1339,38 +1339,31 @@ function App(){
 
   // Écran carte+sheet (render function, NOT a component — avoids remounting Leaflet on every re-render)
   const renderMapScreen=()=>{
-    const SHEET_PEEK_SM=80;  // très réduit — juste le handle
-    const SHEET_PEEK_MD=170; // réduit normal — strip visible
-    const SHEET_FULL=Math.round(window.innerHeight*0.6);
-    // sheetOpen : false=peek, "md"=normal, "full"=plein
-    const sheetH=sheetOpen==="full"?SHEET_FULL:sheetOpen==="md"?SHEET_PEEK_MD:SHEET_PEEK_SM;
-    // Tab bar hauteur = 80px environ, on remonte le sheet de cette valeur
-    const TAB_H=90;
-
-    const handleTap=()=>{
-      if(sheetOpen==="full") setSheetOpen("md");
-      else if(sheetOpen==="md") setSheetOpen(false);
-      else setSheetOpen("md");
-    };
-    const handleDoubleTap=(()=>{
-      let last=0;
-      return()=>{
-        const now=Date.now();
-        if(now-last<350){
-          setSheetOpen(v=>v==="full"?"md":v==="md"?false:"md");
-        }
-        last=now;
-      };
-    })();
+    const SHEET_PEEK_MD=170; // réduit — strip visible
+    const SHEET_FULL=Math.round(window.innerHeight*0.58);
+    const sheetH=sheetOpen==="full"?SHEET_FULL:SHEET_PEEK_MD;
+    const TAB_H=90; // hauteur tab bar + marge
 
     return h("div",{style:{position:"fixed",inset:0,zIndex:5,maxWidth:460,margin:"0 auto",width:"100%"}},
-      // Carte plein écran
-      h("div",{style:{position:"absolute",inset:0,zIndex:1},onClick:()=>{handleDeselectPost();if(showFilter)setShowFilter(false);}},
+      // Carte — onClick seulement sur tap réel (pas drag/pan)
+      h("div",{style:{position:"absolute",inset:0,zIndex:1},
+        onMouseDown:e=>e.currentTarget._tapStart={x:e.clientX,y:e.clientY},
+        onTouchStart:e=>{const t=e.touches[0];e.currentTarget._tapStart={x:t.clientX,y:t.clientY};},
+        onClick:e=>{
+          const s=e.currentTarget._tapStart;
+          if(!s)return;
+          const dx=e.clientX-s.x,dy=e.clientY-s.y;
+          if(Math.sqrt(dx*dx+dy*dy)<8){// vrai tap, pas un pan
+            handleDeselectPost();
+            if(showFilter)setShowFilter(false);
+          }
+        }
+      },
         h(ZoneMap,{posts:filteredPosts,gps,myUid,users,onSelectPost:handleSelectPost,selectedPostId:selectedPost?.id,onMapReady:m=>leafMapRef.current=m})
       ),
 
       // Overlays haut
-      h("div",{style:{position:"absolute",top:52,left:16,right:16,zIndex:20,display:"flex",alignItems:"center",gap:10,pointerEvents:"none"}},
+      h("div",{style:{position:"absolute",top:"max(60px, calc(env(safe-area-inset-top) + 12px))",left:16,right:16,zIndex:20,display:"flex",alignItems:"center",gap:10,pointerEvents:"none"}},
         h("div",{style:{pointerEvents:"all"},onClick:()=>push({id:"profile",uk:myUid})},
           h(Av,{photo:myUser.photo,pseudo:myUser.pseudo||"?",sz:40,hue:uidHue(myUid)})
         ),
@@ -1403,7 +1396,7 @@ function App(){
         })
       ),
 
-      // Bottom sheet — remonte pour éviter la tab bar
+      // Bottom sheet — bottom:TAB_H pour ne pas chevaucher la tab bar
       h("div",{style:{
         position:"absolute",bottom:TAB_H,left:0,right:0,zIndex:20,
         height:sheetH,
@@ -1413,48 +1406,55 @@ function App(){
         display:"flex",flexDirection:"column",
         transition:"height 0.28s cubic-bezier(.25,.46,.45,.94)"
       }},
-        // Handle — tap simple = toggle sm/md, double-tap = full
+        // Handle — tap = toggle md↔full uniquement (jamais fermer depuis handle)
         h("div",{
-          onClick:(()=>{
-            let last=0;
-            return()=>{
-              const now=Date.now();
-              if(now-last<350){setSheetOpen("full");}
-              else{setSheetOpen(v=>v==="full"?"md":v==="md"?false:"md");}
-              last=now;
-            };
-          })(),
+          onClick:()=>setSheetOpen(v=>v==="full"?"md":"full"),
           style:{padding:"10px 16px 8px",cursor:"pointer",flexShrink:0,userSelect:"none"}
         },
           h("div",{style:{width:36,height:4,background:"#e0e0e0",borderRadius:2,margin:"0 auto 10px"}}),
-          sheetOpen!==false&&h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
+          h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",minHeight:20}},
             h("div",{style:{fontSize:13,fontWeight:700,color:"var(--text)"}},
               selectedPost
                 ?users[selectedPost.uid]?.pseudo||"Post"
                 :`${filteredPosts.length} post${filteredPosts.length>1?"s":""} à proximité`
             ),
-            selectedPost&&h("button",{onClick:e=>{e.stopPropagation();handleDeselectPost();setSheetOpen(false);},style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:0,lineHeight:1}},"×")
+            h("div",{style:{display:"flex",alignItems:"center",gap:8}},
+              selectedPost&&h("button",{onClick:e=>{e.stopPropagation();handleDeselectPost();},style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:0,lineHeight:1}},"×"),
+              h("div",{style:{fontSize:11,color:"var(--text3)",transform:sheetOpen==="full"?"rotate(180deg)":"none",transition:"transform 0.2s"}},
+                h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2.5},h("polyline",{points:"18 15 12 9 6 15"}))
+              )
+            )
           )
         ),
 
         // Contenu
-        sheetOpen!==false&&h("div",{style:{flex:1,overflowY:sheetOpen==="full"?"auto":"hidden",overflowX:sheetOpen==="full"?"hidden":"auto",display:"flex",flexDirection:sheetOpen==="full"?"column":"row",gap:sheetOpen==="full"?0:10,padding:sheetOpen==="full"?"0":"0 16px 12px",scrollbarWidth:"none"}},
-
-          // Post sélectionné → mini card compacte
+        h("div",{style:{
+          flex:1,
+          overflowY:sheetOpen==="full"?"auto":"hidden",
+          overflowX:sheetOpen==="full"?"hidden":"auto",
+          display:"flex",
+          flexDirection:sheetOpen==="full"?"column":"row",
+          gap:sheetOpen==="full"?0:10,
+          padding:sheetOpen==="full"?"0":"0 16px 8px",
+          scrollbarWidth:"none"
+        }},
+          // Post sélectionné
           selectedPost
             ?sheetOpen==="full"
-              // Full : mini card + bouton voir le post
               ?h("div",{style:{padding:"0 16px 16px"}},
                   h("div",{style:{display:"flex",gap:12,alignItems:"center",padding:"12px 14px",background:"var(--bg2)",borderRadius:"var(--rl)",marginBottom:12}},
                     selectedPost.photo&&canSee(selectedPost,myUid,gps)
-                      ?h("img",{src:selectedPost.photo,style:{width:60,height:60,borderRadius:10,objectFit:"cover",flexShrink:0}})
-                      :h("div",{style:{width:60,height:60,borderRadius:10,background:"var(--gbg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}},canSee(selectedPost,myUid,gps)?"📍":"🔒"),
+                      ?h("img",{src:selectedPost.photo,style:{width:64,height:64,borderRadius:10,objectFit:"cover",flexShrink:0}})
+                      :h("div",{style:{width:64,height:64,borderRadius:10,background:"var(--gbg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}},canSee(selectedPost,myUid,gps)?"📍":"🔒"),
                     h("div",{style:{flex:1,minWidth:0}},
-                      h("div",{style:{fontSize:14,fontWeight:700,color:"var(--text)",marginBottom:3}},users[selectedPost.uid]?.pseudo||"…"),
-                      h("div",{style:{fontSize:12,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},selectedPost.text||"📷 Photo"),
-                      h("div",{style:{display:"flex",alignItems:"center",gap:12,marginTop:6}},
+                      h("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:4}},
+                        h(Av,{photo:users[selectedPost.uid]?.photo,pseudo:users[selectedPost.uid]?.pseudo||"?",sz:22,hue:uidHue(selectedPost.uid)}),
+                        h("span",{style:{fontSize:14,fontWeight:700,color:"var(--text)"}},users[selectedPost.uid]?.pseudo||"…")
+                      ),
+                      h("div",{style:{fontSize:12,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:6}},canSee(selectedPost,myUid,gps)?(selectedPost.text||"📷 Photo"):"🔒 Hors zone"),
+                      h("div",{style:{display:"flex",alignItems:"center",gap:12}},
                         h("span",{style:{fontSize:11,color:"var(--green)",fontWeight:600}},gps?fmtD(haversine(gps.lat,gps.lng,selectedPost.lat,selectedPost.lng)):"—"),
-                        h("button",{onClick:()=>toggleLike(selectedPost.id,myUid,!!(selectedPost.likes&&selectedPost.likes[myUid])),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,padding:0,display:"flex",alignItems:"center",gap:4,color:selectedPost.likes&&selectedPost.likes[myUid]?"var(--red)":"var(--text3)"}},
+                        h("button",{onClick:e=>{e.stopPropagation();toggleLike(selectedPost.id,myUid,!!(selectedPost.likes&&selectedPost.likes[myUid]));},style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,padding:0,display:"flex",alignItems:"center",gap:4,color:selectedPost.likes&&selectedPost.likes[myUid]?"var(--red)":"var(--text3)"}},
                           selectedPost.likes&&selectedPost.likes[myUid]?"❤️":"🤍",
                           Object.keys(selectedPost.likes||{}).filter(k=>selectedPost.likes[k]).length||""
                         )
@@ -1463,18 +1463,21 @@ function App(){
                   ),
                   h("button",{onClick:()=>push({id:"photo",post:selectedPost}),style:{width:"100%",padding:"13px",fontSize:14,fontWeight:700,background:"var(--green)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer",boxShadow:"0 4px 16px rgba(29,158,117,0.3)"}},"Voir le post →")
                 )
-              // Réduit avec post sélectionné : mini aperçu horizontal
-              :h("div",{style:{flexShrink:0,width:130,background:"var(--gbg)",borderRadius:"var(--rl)",overflow:"hidden",border:"1.5px solid var(--green)"}},
-                  selectedPost.photo&&canSee(selectedPost,myUid,gps)?h("img",{src:selectedPost.photo,style:{width:"100%",height:80,objectFit:"cover",display:"block"}}):h("div",{style:{height:80,background:"var(--gbg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}},"📍"),
+              // Mode réduit avec post sélectionné = mini card améliorée
+              :h("div",{style:{flexShrink:0,width:160,background:"var(--gbg)",borderRadius:"var(--rl)",overflow:"hidden",border:"2px solid var(--green)",cursor:"pointer"},onClick:()=>setSheetOpen("full")},
+                  selectedPost.photo&&canSee(selectedPost,myUid,gps)?h("img",{src:selectedPost.photo,style:{width:"100%",height:76,objectFit:"cover",display:"block"}}):h("div",{style:{height:76,background:"var(--gbg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}},canSee(selectedPost,myUid,gps)?"📍":"🔒"),
                   h("div",{style:{padding:"6px 8px"}},
-                    h("div",{style:{fontSize:11,fontWeight:600,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},users[selectedPost.uid]?.pseudo||"…"),
-                    h("div",{style:{fontSize:10,color:"var(--green)",marginTop:1}},gps?fmtD(haversine(gps.lat,gps.lng,selectedPost.lat,selectedPost.lng)):"—")
+                    h("div",{style:{display:"flex",alignItems:"center",gap:5,marginBottom:2}},
+                      h(Av,{photo:users[selectedPost.uid]?.photo,pseudo:users[selectedPost.uid]?.pseudo||"?",sz:16,hue:uidHue(selectedPost.uid)}),
+                      h("span",{style:{fontSize:11,fontWeight:600,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},users[selectedPost.uid]?.pseudo||"…")
+                    ),
+                    h("div",{style:{fontSize:10,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},canSee(selectedPost,myUid,gps)?(selectedPost.text||"📷 Photo"):"🔒"),
+                    h("div",{style:{fontSize:10,color:"var(--green)",marginTop:2,fontWeight:600}},gps?fmtD(haversine(gps.lat,gps.lng,selectedPost.lat,selectedPost.lng)):"—")
                   )
                 )
 
           // Pas de post sélectionné
           :sheetOpen==="full"
-            // Full sans sélection → liste verticale
             ?filteredPosts.length===0
               ?h("div",{style:{padding:"32px 16px",textAlign:"center",color:"var(--text3)",fontSize:14}},"Aucun post dans cette zone")
               :filteredPosts.map(p=>{
@@ -1489,22 +1492,22 @@ function App(){
                     h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text3)",strokeWidth:2},h("polyline",{points:"9 18 15 12 9 6"}))
                   );
                 })
-            // Strip horizontal (mode md)
+            // Strip horizontal (mode md) — avec padding-bottom pour éviter le chevauchement
             :filteredPosts.filter(p=>p.lat&&p.lng).slice(0,15).map(p=>{
                 const u=users[p.uid];const d=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):0;const ul=canSee(p,myUid,gps);
                 const isSel=selectedPost?.id===p.id;
-                return h("div",{key:p.id,onClick:()=>handleSelectPost(p),style:{flexShrink:0,width:130,background:isSel?"var(--gbg)":"var(--bg2)",borderRadius:"var(--rl)",overflow:"hidden",cursor:"pointer",border:isSel?"1.5px solid var(--green)":"1.5px solid transparent"}},
-                  p.photo&&ul?h("img",{src:p.photo,style:{width:"100%",height:80,objectFit:"cover",display:"block"}}):h("div",{style:{height:80,background:ul?"var(--gbg)":"#E8F7F2",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}},ul?"📍":"🔒"),
-                  h("div",{style:{padding:"6px 8px"}},
-                    h("div",{style:{fontSize:11,fontWeight:600,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},u?.pseudo||"…"),
-                    h("div",{style:{fontSize:10,color:"var(--green)",marginTop:1,fontWeight:500}},fmtD(d))
+                return h("div",{key:p.id,onClick:()=>handleSelectPost(p),style:{flexShrink:0,width:140,background:isSel?"var(--gbg)":"var(--bg2)",borderRadius:"var(--rl)",overflow:"hidden",cursor:"pointer",border:isSel?"2px solid var(--green)":"2px solid transparent"}},
+                  p.photo&&ul?h("img",{src:p.photo,style:{width:"100%",height:84,objectFit:"cover",display:"block"}}):h("div",{style:{height:84,background:ul?"var(--gbg)":"#E8F7F2",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}},ul?"📍":"🔒"),
+                  h("div",{style:{padding:"6px 10px"}},
+                    h("div",{style:{fontSize:11,fontWeight:600,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}},u?.pseudo||"…"),
+                    h("div",{style:{fontSize:10,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}},ul?(p.text||"📷 Photo"):"🔒"),
+                    h("div",{style:{fontSize:10,color:"var(--green)",fontWeight:600}},fmtD(d))
                   )
                 );
               })
         )
       ),
 
-      // Tab bar flottante — au-dessus du sheet
       h(TabBar)
     );
   };
