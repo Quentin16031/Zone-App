@@ -1269,6 +1269,14 @@ function App(){
     return()=>navigator.geolocation.clearWatch(wid);
   },[phase]);
 
+  // Bottom sheet + filter state — MUST be before conditional returns (Rules of Hooks)
+  const [sheetOpen,setSheetOpen]=useState(false);
+  const [selectedPost,setSelectedPost]=useState(null);
+  const [dateFilter,setDateFilter]=useState("all");
+  const [hiddenAuthors,setHiddenAuthors]=useState(new Set());
+  const [showFilter,setShowFilter]=useState(false);
+  const leafMapRef=useRef(null);
+
   const signIn=async()=>{
     setSignLoading(true);setSignError(false);
     try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}
@@ -1307,13 +1315,7 @@ function App(){
     )
   );
 
-  // État bottom sheet
-  const [sheetOpen,setSheetOpen]=useState(false);
-  const [selectedPost,setSelectedPost]=useState(null);
-  const [dateFilter,setDateFilter]=useState("all");
-  const [hiddenAuthors,setHiddenAuthors]=useState(new Set());
-  const [showFilter,setShowFilter]=useState(false);
-  const leafMapRef=useRef(null);
+  // État bottom sheet (hooks already declared above)
   const myUser=users[myUid]||{};
 
   // Filtrage posts pour la carte
@@ -1335,8 +1337,8 @@ function App(){
     setSelectedPost(null);
   };
 
-  // Écran carte+sheet (page principale)
-  const MapScreen=()=>{
+  // Écran carte+sheet (render function, NOT a component — avoids remounting Leaflet on every re-render)
+  const renderMapScreen=()=>{
     const SHEET_PEEK=170; // hauteur réduite
     const sheetH=sheetOpen?Math.round(window.innerHeight*0.6):SHEET_PEEK;
     return h("div",{style:{position:"fixed",inset:0,zIndex:5,maxWidth:460,margin:"0 auto",width:"100%"}},
@@ -1459,7 +1461,7 @@ function App(){
 
   return h("div",{style:{minHeight:"100vh",background:"var(--bg3)"}},
     // Écran carte (page principale)
-    isMapRoot&&h(MapScreen),
+    isMapRoot&&renderMapScreen(),
 
     // Autres écrans
     !isMapRoot&&h("div",{key:cur.id+(cur.uk||""),className:stack.length>1?slideClass:""},
