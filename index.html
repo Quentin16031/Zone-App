@@ -1270,7 +1270,7 @@ function App(){
   },[phase]);
 
   // Bottom sheet + filter state — MUST be before conditional returns (Rules of Hooks)
-  const [sheetOpen,setSheetOpen]=useState(false);
+  const [sheetOpen,setSheetOpen]=useState("md");
   const [selectedPost,setSelectedPost]=useState(null);
   const [dateFilter,setDateFilter]=useState("all");
   const [hiddenAuthors,setHiddenAuthors]=useState(new Set());
@@ -1413,9 +1413,17 @@ function App(){
         display:"flex",flexDirection:"column",
         transition:"height 0.28s cubic-bezier(.25,.46,.45,.94)"
       }},
-        // Handle — tap = toggle md/sm, double-tap = full
+        // Handle — tap simple = toggle sm/md, double-tap = full
         h("div",{
-          onClick:handleDoubleTap,
+          onClick:(()=>{
+            let last=0;
+            return()=>{
+              const now=Date.now();
+              if(now-last<350){setSheetOpen("full");}
+              else{setSheetOpen(v=>v==="full"?"md":v==="md"?false:"md");}
+              last=now;
+            };
+          })(),
           style:{padding:"10px 16px 8px",cursor:"pointer",flexShrink:0,userSelect:"none"}
         },
           h("div",{style:{width:36,height:4,background:"#e0e0e0",borderRadius:2,margin:"0 auto 10px"}}),
