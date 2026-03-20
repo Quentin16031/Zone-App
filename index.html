@@ -1459,7 +1459,7 @@ function App(){
     );
   };
 
-  return h("div",{style:{minHeight:"100vh",background:"var(--bg3)"}},
+  return h("div",{style:{minHeight:"100vh",background:"var(--bg3)",overflow:isMapRoot?"hidden":undefined,height:isMapRoot?"100vh":undefined}},
     // Écran carte (page principale)
     isMapRoot&&renderMapScreen(),
 
