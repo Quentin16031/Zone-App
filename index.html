@@ -1342,8 +1342,8 @@ function App(){
     const SHEET_PEEK=170; // hauteur réduite
     const sheetH=sheetOpen?Math.round(window.innerHeight*0.6):SHEET_PEEK;
     return h("div",{style:{position:"fixed",inset:0,zIndex:5,maxWidth:460,margin:"0 auto",width:"100%"}},
-      // Carte plein écran
-      h("div",{style:{position:"absolute",inset:0},onClick:handleDeselectPost},
+      // Carte plein écran — zIndex:1 crée un stacking context pour contenir les z-index internes de Leaflet
+      h("div",{style:{position:"absolute",inset:0,zIndex:1},onClick:handleDeselectPost},
         h(ZoneMap,{posts:filteredPosts,gps,myUid,users,onSelectPost:handleSelectPost,selectedPostId:selectedPost?.id,onMapReady:m=>leafMapRef.current=m})
       ),
 
