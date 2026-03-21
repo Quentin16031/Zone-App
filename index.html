@@ -33,6 +33,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   --shadow:0 2px 16px rgba(0,0,0,0.07);
   --shadow2:0 4px 24px rgba(0,0,0,0.10);
 }
+/* Glassmorphism Zone */
+:root{
+  --zone-teal:#1DBEAA;--zone-teal-dark:#0D9E88;
+  --zone-purple:#9B6FFF;--zone-pink:#FF6B9D;--zone-cyan:#00D4FF;
+  --zone-text:#1a1a2e;--zone-text-light:#5a5a6e;
+  --glass-bg:rgba(255,255,255,0.15);--glass-bg-strong:rgba(255,255,255,0.25);
+  --glass-border:rgba(255,255,255,0.3);
+  --glass-shadow:0 8px 32px rgba(31,38,135,0.15);
+  --gradient-main:linear-gradient(135deg,#1DBEAA 0%,#00D4FF 50%,#9B6FFF 100%);
+  --gradient-soft:linear-gradient(135deg,rgba(29,190,170,0.06) 0%,rgba(155,111,255,0.06) 100%);
+}
 input,textarea,button,select{font-family:inherit}
 textarea,input{outline:none}
 input[type=range]{width:100%;accent-color:var(--green)}
@@ -40,6 +51,11 @@ img{max-width:100%}
 @keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes slideBack{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes fadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes glassFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-20px) scale(1.05)}}
+@keyframes glassFloatSlow{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-14px) scale(1.03)}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 20px rgba(29,190,170,0.4)}50%{box-shadow:0 0 40px rgba(29,190,170,0.6)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 .s-in{animation:slideIn .25s cubic-bezier(.25,.46,.45,.94) both}
 .s-back{animation:slideBack .25s cubic-bezier(.25,.46,.45,.94) both}
 .fade-up{animation:fadeUp .3s cubic-bezier(.25,.46,.45,.94) both}
@@ -327,44 +343,54 @@ const CatBdg=({catId,cats})=>{
 
 // ── ONBOARDING ────────────────────────────────────────────
 function Welcome({onStart}){
-  return h("div",{style:{display:"flex",flexDirection:"column",minHeight:"100vh",padding:"0 24px",background:"#fff"}},
-    h("div",{style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",paddingTop:48}},
-      h("div",{style:{width:72,height:72,borderRadius:20,background:"#1D9E75",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:24}},
-        h("span",{style:{fontSize:28,color:"#fff",fontWeight:600,letterSpacing:"0.05em"}},"Z")),
-      h("h1",{style:{fontSize:28,fontWeight:500,margin:"0 0 10px",letterSpacing:"0.06em"}},"ZONE"),
-      h("p",{style:{fontSize:15,color:"var(--text2)",lineHeight:1.7,maxWidth:300,margin:"0 0 6px"}},"Le réseau social ancré dans le réel."),
-      h("p",{style:{fontSize:14,color:"var(--text3)",lineHeight:1.75,maxWidth:300,margin:"0 0 36px"}},"Poste des photos visibles uniquement par ceux qui se trouvent au même endroit que toi."),
+  return h("div",{style:{display:"flex",flexDirection:"column",minHeight:"100vh",padding:"0 24px",background:"linear-gradient(135deg,#1DBEAA 0%,#00D4FF 50%,#9B6FFF 100%)",position:"relative",overflow:"hidden"}},
+    // Blobs flottants
+    h("div",{style:{position:"absolute",top:60,left:-40,width:220,height:220,borderRadius:"50%",background:"rgba(255,255,255,0.1)",filter:"blur(60px)",animation:"glassFloat 6s ease-in-out infinite",pointerEvents:"none"}}),
+    h("div",{style:{position:"absolute",bottom:80,right:-50,width:280,height:280,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 8s ease-in-out infinite",animationDelay:"1.5s",pointerEvents:"none"}}),
+    h("div",{style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",paddingTop:48,position:"relative",zIndex:2,animation:"slideUp .5s ease-out both"}},
+      // Logo Z — glass card
+      h("div",{style:{width:80,height:80,borderRadius:24,background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1.5px solid rgba(255,255,255,0.3)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:28,animation:"pulseGlow 2s ease-in-out infinite"}},
+        h("span",{style:{fontSize:36,color:"#fff",fontWeight:700,letterSpacing:"0.05em"}},"Z")),
+      h("h1",{style:{fontSize:42,fontWeight:700,margin:"0 0 10px",letterSpacing:"0.04em",color:"#fff"}},"ZONE"),
+      h("p",{style:{fontSize:16,color:"rgba(255,255,255,0.9)",lineHeight:1.7,maxWidth:300,margin:"0 0 6px"}},"Le réseau social ancré dans le réel"),
+      h("p",{style:{fontSize:14,color:"rgba(255,255,255,0.7)",lineHeight:1.75,maxWidth:300,margin:"0 0 36px"}},"Partage des moments visibles uniquement par ceux qui sont au même endroit que toi."),
       h("div",{style:{display:"flex",flexDirection:"column",gap:10,width:"100%",maxWidth:320}},
-        [["📍","Tes posts s'ancrent à ta position GPS et définissent une zone de visibilité"],
-         ["🔒","Contrôle précisément qui peut voir chaque catégorie de tes posts"],
-         ["📷","Partage des photos que seuls ceux présents peuvent découvrir"]]
-        .map(([icon,txt],i)=>h("div",{key:i,style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"var(--bg2)",borderRadius:"var(--rl)",textAlign:"left"}},
-          h("span",{style:{fontSize:20,flexShrink:0}},icon),
-          h("span",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.5}},txt)
+        [["📍","Tes posts créent des zones GPS autour de toi"],
+         ["🔒","Contrôle qui peut voir chaque catégorie"],
+         ["📷","Partage avec ceux qui sont vraiment là"]]
+        .map(([icon,txt],i)=>h("div",{key:i,style:{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:20,textAlign:"left",boxShadow:"0 8px 32px rgba(31,38,135,0.15)"}},
+          h("span",{style:{fontSize:28,flexShrink:0}},icon),
+          h("span",{style:{fontSize:13,color:"rgba(255,255,255,0.9)",lineHeight:1.5}},txt)
         ))
       )
     ),
-    h("div",{style:{padding:"24px 0 48px"}},
-      h("button",{onClick:onStart,style:{width:"100%",padding:14,fontSize:14,fontWeight:500,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer"}},"Commencer"),
-      h("p",{style:{textAlign:"center",fontSize:11,color:"var(--text3)",marginTop:10}},"En continuant tu acceptes les conditions d'utilisation")
+    h("div",{style:{padding:"24px 0 48px",position:"relative",zIndex:2}},
+      h("button",{onClick:onStart,style:{width:"100%",padding:16,fontSize:16,fontWeight:600,background:"#fff",color:"var(--zone-teal)",border:"none",borderRadius:20,cursor:"pointer",boxShadow:"0 8px 32px rgba(0,0,0,0.15)",transition:"transform .2s"}},
+        "Commencer"),
+      h("p",{style:{textAlign:"center",fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:12}},"En continuant tu acceptes les conditions d'utilisation")
     )
   );
 }
 
 function GoogleSignIn({onSign,loading,error}){
-  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"#fff",textAlign:"center"}},
-    h("div",{style:{fontSize:52,marginBottom:20}},"🔐"),
-    h("h2",{style:{fontSize:20,fontWeight:500,margin:"0 0 8px"}},"Connexion"),
-    h("p",{style:{fontSize:14,color:"var(--text2)",margin:"0 0 32px",lineHeight:1.6,maxWidth:280}},"Connecte-toi avec Google pour accéder à ZONE"),
-    error&&h("div",{style:{fontSize:13,color:"var(--red)",marginBottom:16,padding:"10px 14px",background:"#fcebeb",borderRadius:"var(--r)",maxWidth:300,width:"100%"}},"Erreur de connexion. Réessaie."),
-    h("button",{onClick:onSign,disabled:loading,style:{display:"flex",alignItems:"center",gap:12,padding:"13px 24px",background:"#fff",border:"0.5px solid var(--border2)",borderRadius:"var(--rl)",cursor:"pointer",fontSize:14,fontWeight:500,color:"var(--text)",width:"100%",maxWidth:300,justifyContent:"center",opacity:loading?0.6:1}},
-      h("svg",{width:18,height:18,viewBox:"0 0 18 18"},
-        h("path",{fill:"#4285F4",d:"M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"}),
-        h("path",{fill:"#34A853",d:"M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"}),
-        h("path",{fill:"#FBBC05",d:"M4.5 10.48A4.8 4.8 0 0 1 4.5 7.5V5.43H1.83a8 8 0 0 0 0 7.14l2.67-2.09z"}),
-        h("path",{fill:"#EA4335",d:"M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.65.02 8.98.02A8 8 0 0 0 1.83 5.43L4.5 7.5a4.77 4.77 0 0 1 4.48-3.92z"})
-      ),
-      loading?"Connexion…":"Continuer avec Google"
+  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"linear-gradient(135deg,#1DBEAA 0%,#00D4FF 50%,#9B6FFF 100%)",textAlign:"center",position:"relative",overflow:"hidden"}},
+    // Blobs
+    h("div",{style:{position:"absolute",top:"20%",left:-30,width:320,height:320,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 7s ease-in-out infinite",pointerEvents:"none"}}),
+    h("div",{style:{position:"absolute",bottom:"15%",right:-40,width:300,height:300,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 9s ease-in-out infinite",animationDelay:"1.5s",pointerEvents:"none"}}),
+    h("div",{style:{position:"relative",zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",maxWidth:340,width:"100%",animation:"slideUp .5s ease-out both"}},
+      h("div",{style:{fontSize:56,marginBottom:24,animation:"glassFloatSlow 4s ease-in-out infinite"}},"🔐"),
+      h("h2",{style:{fontSize:28,fontWeight:700,margin:"0 0 10px",color:"#fff"}},"Connexion"),
+      h("p",{style:{fontSize:15,color:"rgba(255,255,255,0.8)",margin:"0 0 36px",lineHeight:1.6,maxWidth:280}},"Connecte-toi avec Google pour accéder à ZONE"),
+      error&&h("div",{style:{width:"100%",fontSize:13,color:"#fff",marginBottom:18,padding:"12px 16px",background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:16,boxShadow:"0 8px 32px rgba(31,38,135,0.15)"}},"❌ Erreur de connexion. Réessaie."),
+      h("button",{onClick:onSign,disabled:loading,style:{display:"flex",alignItems:"center",gap:12,padding:"15px 24px",background:"rgba(255,255,255,0.25)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:20,cursor:"pointer",fontSize:15,fontWeight:600,color:"#fff",width:"100%",maxWidth:320,justifyContent:"center",opacity:loading?0.6:1,boxShadow:"0 8px 32px rgba(31,38,135,0.2)",transition:"transform .2s"}},
+        h("svg",{width:20,height:20,viewBox:"0 0 18 18"},
+          h("path",{fill:"#4285F4",d:"M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"}),
+          h("path",{fill:"#34A853",d:"M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"}),
+          h("path",{fill:"#FBBC05",d:"M4.5 10.48A4.8 4.8 0 0 1 4.5 7.5V5.43H1.83a8 8 0 0 0 0 7.14l2.67-2.09z"}),
+          h("path",{fill:"#EA4335",d:"M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.65.02 8.98.02A8 8 0 0 0 1.83 5.43L4.5 7.5a4.77 4.77 0 0 1 4.48-3.92z"})
+        ),
+        loading?"Connexion…":"Continuer avec Google"
+      )
     )
   );
 }
@@ -390,35 +416,44 @@ function ProfileSetup({uid,onDone}){
     onDone();
   };
 
-  return h("div",{style:{padding:"0 24px 60px",background:"#fff",minHeight:"100vh"}},
-    h("div",{style:{paddingTop:24,display:"flex",justifyContent:"flex-end"}},h("span",{style:{fontSize:12,color:"var(--text3)"}},"1 / 2")),
-    h("h2",{style:{fontSize:20,fontWeight:500,margin:"12px 0 4px"}},"Crée ton profil"),
-    h("p",{style:{fontSize:13,color:"var(--text2)",margin:"0 0 22px"}},"Ces informations seront visibles par les autres"),
-    h("div",{style:{display:"flex",justifyContent:"center",marginBottom:22}},
-      h("div",{style:{position:"relative",cursor:"pointer"},onClick:()=>fileRef.current?.click()},
-        photo?h("img",{src:photo,style:{width:88,height:88,borderRadius:"50%",objectFit:"cover",display:"block",border:"3px solid #fff",outline:"2px solid var(--border2)"}})
-          :h("div",{style:{width:88,height:88,borderRadius:"50%",background:"var(--bg2)",border:"2px dashed var(--border2)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3}},h("span",{style:{fontSize:22}},"📷"),h("span",{style:{fontSize:10,color:"var(--text3)"}},"Photo")),
-        h("div",{style:{position:"absolute",bottom:2,right:2,width:24,height:24,borderRadius:"50%",background:"var(--text)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",border:"2px solid #fff"}},"✎"),
-        h("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
-      )
-    ),
-    h("div",{style:{display:"flex",flexDirection:"column",gap:14}},
-      h("div",null,
-        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Pseudo *"),
-        h("input",{value:pseudo,onChange:e=>setPseudo(e.target.value.replace(/[^a-zA-Z0-9_]/g,"")),placeholder:"ex: marie_explore",maxLength:24,style:{width:"100%",padding:"11px 14px",fontSize:14,border:`0.5px solid ${ok?"var(--border2)":"var(--border)"}`,borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}),
-        h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:3}},`${pseudo.length}/24 · lettres, chiffres et _`)
+  const glassInputStyle={width:"100%",padding:"13px 16px",fontSize:14,background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:14,color:"#fff",boxSizing:"border-box"};
+
+  return h("div",{style:{minHeight:"100vh",padding:"0 24px 60px",background:"linear-gradient(135deg,#1DBEAA 0%,#00D4FF 50%,#9B6FFF 100%)",position:"relative",overflow:"hidden"}},
+    // Blobs
+    h("div",{style:{position:"absolute",top:120,left:-20,width:260,height:260,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 7s ease-in-out infinite",pointerEvents:"none"}}),
+    h("div",{style:{position:"absolute",bottom:100,right:-30,width:280,height:280,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 9s ease-in-out infinite",animationDelay:"1.2s",pointerEvents:"none"}}),
+    h("div",{style:{position:"relative",zIndex:2,animation:"slideUp .5s ease-out both"}},
+      h("div",{style:{paddingTop:28,display:"flex",justifyContent:"flex-end"}},h("span",{style:{fontSize:12,color:"rgba(255,255,255,0.6)"}},"1 / 2")),
+      h("h2",{style:{fontSize:28,fontWeight:700,margin:"12px 0 6px",color:"#fff"}},"Crée ton profil"),
+      h("p",{style:{fontSize:14,color:"rgba(255,255,255,0.8)",margin:"0 0 24px"}},"Ces informations seront visibles par les autres"),
+      // Photo upload
+      h("div",{style:{display:"flex",justifyContent:"center",marginBottom:24}},
+        h("div",{style:{position:"relative",cursor:"pointer"},onClick:()=>fileRef.current?.click()},
+          photo?h("img",{src:photo,style:{width:96,height:96,borderRadius:"50%",objectFit:"cover",display:"block",border:"3px solid rgba(255,255,255,0.3)",boxShadow:"0 8px 32px rgba(31,38,135,0.2)"}})
+            :h("div",{style:{width:96,height:96,borderRadius:"50%",background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4}},h("span",{style:{fontSize:28}},"📷"),h("span",{style:{fontSize:10,color:"rgba(255,255,255,0.7)"}},"Photo")),
+          h("div",{style:{position:"absolute",bottom:2,right:2,width:28,height:28,borderRadius:"50%",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"var(--zone-text)",border:"2px solid rgba(255,255,255,0.3)",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}},"✎"),
+          h("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+        )
       ),
-      h("div",null,
-        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Bio"),
-        h("textarea",{value:bio,onChange:e=>setBio(e.target.value),placeholder:"Ex : 📸 Chasseuse de panoramas · Lyon",maxLength:80,rows:2,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)",resize:"none"}}),
-        h("div",{style:{fontSize:11,color:"var(--text3)",marginTop:3}},`${bio.length}/80`)
+      // Form fields
+      h("div",{style:{display:"flex",flexDirection:"column",gap:16}},
+        h("div",null,
+          h("label",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.9)",display:"block",marginBottom:6}},"Pseudo *"),
+          h("input",{value:pseudo,onChange:e=>setPseudo(e.target.value.replace(/[^a-zA-Z0-9_]/g,"")),placeholder:"ex: marie_explore",maxLength:24,style:glassInputStyle}),
+          h("div",{style:{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:4}},pseudo.length+"/24 · lettres, chiffres et _")
+        ),
+        h("div",null,
+          h("label",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.9)",display:"block",marginBottom:6}},"Bio"),
+          h("textarea",{value:bio,onChange:e=>setBio(e.target.value),placeholder:"Ex : 📸 Chasseuse de panoramas · Lyon",maxLength:80,rows:2,style:Object.assign({},glassInputStyle,{resize:"none",fontFamily:"inherit"})}),
+          h("div",{style:{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:4}},bio.length+"/80")
+        ),
+        h("div",null,
+          h("label",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.9)",display:"block",marginBottom:6}},"Ville"),
+          h("input",{value:ville,onChange:e=>setVille(e.target.value),placeholder:"ex: Marseille",maxLength:40,style:glassInputStyle})
+        )
       ),
-      h("div",null,
-        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Ville"),
-        h("input",{value:ville,onChange:e=>setVille(e.target.value),placeholder:"ex: Marseille",maxLength:40,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}})
-      )
-    ),
-    h("button",{onClick:save,disabled:!ok||saving,style:{marginTop:28,width:"100%",padding:13,fontSize:14,fontWeight:500,background:ok&&!saving?"var(--text)":"var(--bg2)",color:ok&&!saving?"#fff":"var(--text3)",border:"none",borderRadius:"var(--rl)",cursor:ok?"pointer":"default"}},saving?"Sauvegarde…":"Continuer →")
+      h("button",{onClick:save,disabled:!ok||saving,style:{marginTop:28,width:"100%",padding:16,fontSize:16,fontWeight:600,background:ok&&!saving?"#fff":"rgba(255,255,255,0.15)",color:ok&&!saving?"var(--zone-teal)":"rgba(255,255,255,0.4)",border:ok&&!saving?"none":"1px solid rgba(255,255,255,0.2)",borderRadius:20,cursor:ok?"pointer":"default",boxShadow:ok&&!saving?"0 8px 32px rgba(0,0,0,0.15)":"none",transition:"all .3s"}},saving?"Sauvegarde…":"Continuer →")
+    )
   );
 }
 
@@ -433,67 +468,69 @@ function GpsScreen({onDone}){
       pos=>{setStatus("success");setTimeout(()=>onDone(pos),600);},
       err=>{
         setErrorCode(err.code);
-        // code 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
         setStatus(err.code===1?"denied":err.code===3?"timeout":"unavailable");
       },
       {enableHighAccuracy:true,timeout:12000,maximumAge:0}
     );
   };
 
-  // Essai auto au montage si permission déjà accordée
   useEffect(()=>{
     if(navigator.permissions){
       navigator.permissions.query({name:"geolocation"}).then(r=>{
         if(r.state==="granted")request();
-      }).catch(()=>{}); // pas supporté sur tous les navigateurs
+      }).catch(()=>{});
     }
   },[]);
 
   const statusInfo={
-    idle:{icon:"📍",color:"var(--green)",title:"Localisation requise",sub:"ZONE utilise ta position pour afficher les posts autour de toi et ancrer tes publications."},
-    requesting:{icon:"⏳",color:"var(--text2)",title:"Récupération en cours…",sub:"Recherche de ta position GPS. Cela peut prendre quelques secondes."},
-    success:{icon:"✅",color:"var(--green)",title:"Position trouvée !",sub:"Tu vas être redirigé vers l'app…"},
-    denied:{icon:"🚫",color:"var(--red)",title:"Accès refusé",sub:"Tu as refusé la localisation. Pour l'activer : Réglages → Safari (ou Chrome) → Localisation → Autoriser."},
-    timeout:{icon:"⏱",color:"#BA7517",title:"Signal GPS faible",sub:"Impossible d'obtenir ta position. Essaie à l'extérieur ou vérifie que le GPS est activé dans les réglages de ton téléphone."},
-    unavailable:{icon:"❌",color:"var(--red)",title:"GPS indisponible",sub:"La géolocalisation n'est pas disponible sur cet appareil ou ce navigateur."},
+    idle:{icon:"📍",color:"from-teal",title:"Localisation requise",sub:"ZONE utilise ta position pour afficher les posts autour de toi et ancrer tes publications."},
+    requesting:{icon:"⏳",color:"from-purple",title:"Récupération en cours…",sub:"Recherche de ta position GPS. Cela peut prendre quelques secondes."},
+    success:{icon:"✅",color:"from-teal",title:"Position trouvée !",sub:"Tu vas être redirigé vers l'app…"},
+    denied:{icon:"🚫",color:"from-red",title:"Accès refusé",sub:"Tu as refusé la localisation. Pour l'activer : Réglages → Safari (ou Chrome) → Localisation → Autoriser."},
+    timeout:{icon:"⏱",color:"from-orange",title:"Signal GPS faible",sub:"Impossible d'obtenir ta position. Essaie à l'extérieur ou vérifie que le GPS est activé dans les réglages de ton téléphone."},
+    unavailable:{icon:"❌",color:"from-red",title:"GPS indisponible",sub:"La géolocalisation n'est pas disponible sur cet appareil ou ce navigateur."},
   };
   const si=statusInfo[status]||statusInfo.idle;
 
-  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"#fff",textAlign:"center"}},
-    h("div",{style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",paddingBottom:48,maxWidth:340,margin:"0 auto"}},
+  // Icon card gradient based on status
+  const iconBg=status==="denied"||status==="unavailable"
+    ?"linear-gradient(135deg,#ef4444,#dc2626)"
+    :status==="timeout"?"linear-gradient(135deg,#f59e0b,#d97706)"
+    :status==="requesting"?"linear-gradient(135deg,#9B6FFF,#FF6B9D)"
+    :"linear-gradient(135deg,#1DBEAA,#00D4FF)";
+
+  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"linear-gradient(135deg,#1DBEAA 0%,#00D4FF 50%,#9B6FFF 100%)",textAlign:"center",position:"relative",overflow:"hidden"}},
+    // Blobs
+    h("div",{style:{position:"absolute",top:60,left:-40,width:280,height:280,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 7s ease-in-out infinite",pointerEvents:"none"}}),
+    h("div",{style:{position:"absolute",bottom:60,right:-40,width:320,height:320,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 9s ease-in-out infinite",animationDelay:"1s",pointerEvents:"none"}}),
+
+    h("div",{style:{position:"relative",zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",maxWidth:360,width:"100%",animation:"slideUp .5s ease-out both"}},
 
       // Icône animée
       h("div",{style:{
-        width:80,height:80,borderRadius:24,
-        background:status==="requesting"?"var(--gbg)":status==="success"?"var(--gbg)":status==="denied"||status==="unavailable"?"#fef2f2":status==="timeout"?"#fef9ed":"var(--gbg)",
+        width:96,height:96,borderRadius:28,
+        background:iconBg,
         display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:36,marginBottom:24,
-        transition:"background .3s",
-        animation:status==="requesting"?"pulse 1.5s ease-in-out infinite":""
+        fontSize:44,marginBottom:28,
+        boxShadow:"0 12px 40px rgba(0,0,0,0.2)",
+        animation:status==="requesting"?"pulseGlow 1.5s ease-in-out infinite":""
       }},si.icon),
 
-      h("h2",{style:{fontSize:20,fontWeight:800,margin:"0 0 8px",color:si.color,letterSpacing:"-0.03em"}},si.title),
-      h("p",{style:{fontSize:14,color:"var(--text2)",lineHeight:1.7,margin:"0 0 28px"}},si.sub),
+      h("h2",{style:{fontSize:28,fontWeight:700,margin:"0 0 10px",color:"#fff"}},si.title),
+      h("p",{style:{fontSize:14,color:"rgba(255,255,255,0.8)",lineHeight:1.7,margin:"0 0 28px",maxWidth:320}},si.sub),
 
       // Infos réglages si refus — iOS spécifique
-      status==="denied"&&h("div",{style:{width:"100%",background:"#fef2f2",borderRadius:"var(--rl)",padding:"14px 16px",marginBottom:20,textAlign:"left",border:"0.5px solid #fca5a5"}},
-        h("div",{style:{fontSize:12,fontWeight:700,color:"#991b1b",marginBottom:8}},"Comment activer sur iPhone :"),
-        [
-          "1. Ouvre l'app Réglages",
-          "2. Descends jusqu'à Safari (ou Chrome)",
-          "3. Appuie sur 'Localisation'",
-          "4. Sélectionne 'Lors de l'utilisation'"
-        ].map((t,i)=>h("div",{key:i,style:{fontSize:12,color:"#7f1d1d",padding:"3px 0"}},t))
+      status==="denied"&&h("div",{style:{width:"100%",background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:20,padding:"16px 18px",marginBottom:20,textAlign:"left",boxShadow:"0 8px 32px rgba(31,38,135,0.15)"}},
+        h("div",{style:{fontSize:13,fontWeight:700,color:"#fff",marginBottom:10}},"📱 Comment activer sur iPhone :"),
+        ["1. Ouvre l'app Réglages","2. Descends jusqu'à Safari (ou Chrome)","3. Appuie sur 'Localisation'","4. Sélectionne 'Lors de l'utilisation'"]
+        .map((t,i)=>h("div",{key:i,style:{fontSize:12,color:"rgba(255,255,255,0.8)",padding:"3px 0"}},t))
       ),
 
       // Réglages si timeout
-      status==="timeout"&&h("div",{style:{width:"100%",background:"#fef9ed",borderRadius:"var(--rl)",padding:"14px 16px",marginBottom:20,textAlign:"left",border:"0.5px solid #fbbf24"}},
-        h("div",{style:{fontSize:12,fontWeight:700,color:"#92400e",marginBottom:8}},"Conseils :"),
-        [
-          "• Va à l'extérieur ou près d'une fenêtre",
-          "• Vérifie que le GPS est activé dans Réglages → Confidentialité → Service de localisation",
-          "• Réessaie dans quelques secondes"
-        ].map((t,i)=>h("div",{key:i,style:{fontSize:12,color:"#78350f",padding:"3px 0"}},t))
+      status==="timeout"&&h("div",{style:{width:"100%",background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:20,padding:"16px 18px",marginBottom:20,textAlign:"left",boxShadow:"0 8px 32px rgba(31,38,135,0.15)"}},
+        h("div",{style:{fontSize:13,fontWeight:700,color:"#fff",marginBottom:10}},"Conseils :"),
+        ["• Va à l'extérieur ou près d'une fenêtre","• Vérifie que le GPS est activé dans Réglages → Confidentialité → Service de localisation","• Réessaie dans quelques secondes"]
+        .map((t,i)=>h("div",{key:i,style:{fontSize:12,color:"rgba(255,255,255,0.8)",padding:"3px 0"}},t))
       ),
 
       // Boutons
@@ -501,13 +538,15 @@ function GpsScreen({onDone}){
         (status==="idle"||status==="denied"||status==="timeout"||status==="unavailable")&&
           h("button",{
             onClick:request,
-            style:{padding:14,fontSize:14,fontWeight:800,background:"var(--green)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer",boxShadow:"0 3px 12px rgba(29,158,117,0.28)",letterSpacing:"-0.01em"}
+            style:{padding:16,fontSize:15,fontWeight:700,background:"#fff",color:"var(--zone-teal)",border:"none",borderRadius:20,cursor:"pointer",boxShadow:"0 8px 32px rgba(0,0,0,0.15)",transition:"transform .2s"}
           },status==="idle"?"Activer la localisation":"Réessayer"),
-        status==="requesting"&&h("div",{style:{padding:14,fontSize:14,color:"var(--text2)",textAlign:"center"}},"Recherche en cours…"),
+        status==="requesting"&&h("div",{style:{padding:16,fontSize:14,color:"rgba(255,255,255,0.8)",textAlign:"center",background:"rgba(255,255,255,0.15)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:20}},"Recherche en cours…"),
         status!=="success"&&h("button",{
           onClick:()=>onDone(null),
-          style:{padding:13,fontSize:14,background:"transparent",border:"0.5px solid var(--border2)",borderRadius:"var(--rl)",cursor:"pointer",color:"var(--text2)"}},"Continuer sans localisation")
-      )
+          style:{padding:15,fontSize:14,fontWeight:500,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:20,cursor:"pointer",color:"#fff"}},"Continuer sans localisation")
+      ),
+
+      h("p",{style:{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:20,maxWidth:280}},"Sans GPS, tu ne pourras pas voir les posts des autres ni publier de contenu")
     )
   );
 }
@@ -1652,10 +1691,12 @@ function App(){
   };
 
   // ── Phases pré-app ──
-  if(phase==="loading") return h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#fff"}},
-    h("div",{style:{textAlign:"center"}},
-      h("div",{style:{width:56,height:56,borderRadius:14,background:"#1D9E75",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}},h("span",{style:{fontSize:24,color:"#fff",fontWeight:600}},"Z")),
-      h("div",{style:{fontSize:13,color:"var(--text3)"}},"Chargement…")
+  if(phase==="loading") return h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"linear-gradient(135deg,#1DBEAA 0%,#00D4FF 50%,#9B6FFF 100%)",position:"relative",overflow:"hidden"}},
+    h("div",{style:{position:"absolute",top:80,left:-30,width:200,height:200,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 6s ease-in-out infinite",pointerEvents:"none"}}),
+    h("div",{style:{position:"absolute",bottom:80,right:-30,width:240,height:240,borderRadius:"50%",background:"rgba(255,255,255,0.08)",filter:"blur(60px)",animation:"glassFloat 8s ease-in-out infinite",animationDelay:"1s",pointerEvents:"none"}}),
+    h("div",{style:{textAlign:"center",position:"relative",zIndex:2}},
+      h("div",{style:{width:64,height:64,borderRadius:20,background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1.5px solid rgba(255,255,255,0.3)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",animation:"pulseGlow 2s ease-in-out infinite"}},h("span",{style:{fontSize:28,color:"#fff",fontWeight:700}},"Z")),
+      h("div",{style:{fontSize:13,color:"rgba(255,255,255,0.7)"}},"Chargement…")
     )
   );
   if(phase==="welcome") return h(Welcome,{onStart:()=>setPhase("google")});
