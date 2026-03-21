@@ -2024,7 +2024,7 @@ function App(){
       cur.id==="cats"&&h(CatsScreen,{myUid,cats:myCats,onBack:pop,onEditAccess:id=>push({id:"access",catId:id})}),
       cur.id==="access"&&myCats.find(c=>c.id===cur.catId)&&h(AccessScreen,{cat:myCats.find(c=>c.id===cur.catId),myUid,users,onBack:pop})
     ),
-    !isMapRoot&&!isPublish&&!isProfile&&h(TabBar)
+    !isMapRoot&&!isPublish&&!isProfile&&cur.id!=="post"&&h(TabBar)
   );
 }
 
