@@ -38,8 +38,8 @@ img{max-width:100%}
 .s-back{animation:slideBack .25s cubic-bezier(.25,.46,.45,.94) both}
 .fade-up{animation:fadeUp .3s cubic-bezier(.25,.46,.45,.94) both}
 .camera-overlay{position:fixed;inset:0;background:#000;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center}
-@keyframes sonar-expand{0%{transform:translate(-50%,-50%) scale(0.4);opacity:0.9}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
-@keyframes sonar-expand2{0%{transform:translate(-50%,-50%) scale(0.4);opacity:0.7}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+/* Leaflet z-index containment */
+.leaflet-pane{z-index:1!important}
 /* Leaflet popup */
 .leaflet-popup-content-wrapper{border-radius:14px!important;box-shadow:var(--shadow2)!important}
 </style>
@@ -183,14 +183,12 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
   },[gps?.lat,gps?.lng]);
 
-  // Marqueurs posts — Système Sonar Ping
+  // Marqueurs posts — L.circle pour le rayon + marqueurs propres
   useEffect(()=>{
     if(!leafRef.current)return;
     Object.values(markersRef.current).forEach(m=>m.remove());
     Object.values(circlesRef.current).forEach(c=>c.remove());
     markersRef.current={};circlesRef.current={};
-
-    const now=Date.now();
 
     posts.forEach(p=>{
       if(!p.lat||!p.lng)return;
@@ -198,84 +196,57 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
       const isSelected=p.id===selectedPostId;
       const isOwn=p.uid===myUid;
       const dimmed=selectedPostId&&!isSelected;
-      const alpha=dimmed?0.3:1;
+      const alpha=dimmed?0.35:1;
 
       // ── Couleur : catégorie > auteur ──
       const authorCats=allCats?.[p.uid]||{};
       const color=postColor(p,authorCats);
-      const userHue=uidHue(p.uid);
 
-      // ── Âge du post → vitesse et taille du sonar ──
-      const ageMs=now-(p.ts||now);
-      const ageH=ageMs/3600000; // en heures
-      // Durée de l'animation : récent=rapide(2s), ancien=lent(5s)
-      const dur=Math.min(2+ageH*0.6, 5).toFixed(1);
-      // Taille max du sonar = rayon converti en "% de la carte visible"
-      // On utilise juste une taille CSS relative — le rayon Leaflet est géré séparément
-      const sonarSize=isSelected?80:inZone?60:40;
-      // Couleur sonar : vert si inZone, gris si hors portée, accent si sélectionné
-      const sonarColor=isSelected?"#1D9E75":inZone?userHue:"#aaa";
-      const sonarOpacity=isSelected?0.7:inZone?0.5:0.25;
-
-      // ── Sonar : divIcon avec anneaux CSS animés ──
-      // Remplace L.circle — visuellement plus élégant
-      const delay1=(ageH*0.3%parseFloat(dur)).toFixed(1);
-      const delay2=(ageH*0.3%parseFloat(dur)+parseFloat(dur)*0.45).toFixed(1);
-
-      const sonarHtml=`<div style="position:relative;width:${sonarSize}px;height:${sonarSize}px;opacity:${alpha}">
-        <div style="position:absolute;top:50%;left:50%;width:100%;height:100%;border-radius:50%;border:1.5px solid ${sonarColor};opacity:${sonarOpacity};animation:sonar-expand ${dur}s ease-out ${delay1}s infinite;pointer-events:none"></div>
-        <div style="position:absolute;top:50%;left:50%;width:100%;height:100%;border-radius:50%;border:1px solid ${sonarColor};opacity:${sonarOpacity*0.7};animation:sonar-expand2 ${dur}s ease-out ${delay2}s infinite;pointer-events:none"></div>
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:${sonarColor};border:2px solid #fff;box-shadow:0 1px 6px ${sonarColor}66;opacity:${alpha}"></div>
-      </div>`;
-      const sonarIcon=L.divIcon({className:'',html:sonarHtml,iconSize:[sonarSize,sonarSize],iconAnchor:[sonarSize/2,sonarSize/2]});
-      const sonarMarker=L.marker([p.lat,p.lng],{icon:sonarIcon,zIndexOffset:0,interactive:false}).addTo(leafRef.current);
-      circlesRef.current[p.id]=sonarMarker; // on réutilise circlesRef pour cleanup
+      // ── L.circle — rayon réel géographique ──
+      const circleColor=isSelected?"#1D9E75":color;
+      const circle=L.circle([p.lat,p.lng],{
+        radius:p.radius||300,
+        color:circleColor,weight:isSelected?2.5:1.5,
+        fillColor:circleColor,
+        fillOpacity:(inZone?0.10:0.04)*alpha,
+        dashArray:inZone?null:'6 4',
+        opacity:alpha*0.8
+      }).addTo(leafRef.current);
+      circlesRef.current[p.id]=circle;
 
       // ── Marqueur principal ──
       const u=users[p.uid];
-      const initials=(u?.pseudo||"?").slice(0,2).toUpperCase();
-      let markerHtml;
+      let markerHtml,sz,anchorY;
 
       if(isOwn){
-        // Tes propres posts : dot vert compact, sans pseudo — tu sais que c'est toi
-        const dotSize=isSelected?14:10;
-        const ringSize=isSelected?24:18;
-        markerHtml=`<div style="position:relative;width:${ringSize}px;height:${ringSize}px;opacity:${alpha}">
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:#1D9E75;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(29,158,117,0.4)${isSelected?',0 0 0 4px rgba(29,158,117,0.2)':''}"></div>
+        // Mes posts : dot vert avec halo, bien visible
+        const dotSz=isSelected?16:12;
+        const haloSz=isSelected?28:22;
+        sz=haloSz;anchorY=haloSz/2;
+        markerHtml=`<div style="width:${haloSz}px;height:${haloSz}px;display:flex;align-items:center;justify-content:center;opacity:${alpha}">
+          <div style="width:${haloSz}px;height:${haloSz}px;border-radius:50%;background:rgba(29,158,117,0.12);position:absolute"></div>
+          <div style="width:${dotSz}px;height:${dotSz}px;border-radius:50%;background:#1D9E75;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(29,158,117,0.45);position:relative;z-index:1"></div>
         </div>`;
-        const sz=ringSize;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:50}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
       } else if(inZone){
-        // Autre user visible : bulle avec initiales + pseudo
-        const pseudo=u?.pseudo?u.pseudo.slice(0,7):"";
-        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha};filter:${dimmed?'grayscale(0.5)':'none'}">
-          <div style="background:#fff;border-radius:${isSelected?12:10}px;padding:4px ${pseudo?'9px':'5px'} 4px 4px;display:flex;align-items:center;gap:5px;box-shadow:0 2px 12px rgba(0,0,0,0.12),${isSelected?`0 0 0 2px #1D9E75`:`0 0 0 0 transparent`};border-left:3px solid ${userHue}">
-            <div style="width:${isSelected?22:18}px;height:${isSelected?22:18}px;border-radius:${isSelected?8:6}px;background:${userHue};display:flex;align-items:center;justify-content:center;font-size:${isSelected?9:8}px;font-weight:900;color:#fff;flex-shrink:0">${initials}</div>
-            ${pseudo?`<span style="font-size:${isSelected?11:9}px;font-weight:800;color:#0D1117;white-space:nowrap;letter-spacing:-0.01em">${pseudo}</span>`:''}
-          </div>
-          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #fff;margin-top:-1px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.08))"></div>
+        // Autre user visible : bulle compacte avec initiales
+        const initials=(u?.pseudo||"?").slice(0,2).toUpperCase();
+        const bSz=isSelected?26:20;
+        sz=bSz+8;anchorY=(bSz+8)/2;
+        markerHtml=`<div style="display:flex;align-items:center;justify-content:center;opacity:${alpha};filter:${dimmed?'grayscale(0.4)':'none'}">
+          <div style="width:${bSz}px;height:${bSz}px;border-radius:${isSelected?9:7}px;background:${color};display:flex;align-items:center;justify-content:center;font-size:${isSelected?10:8}px;font-weight:900;color:#fff;border:2.5px solid #fff;box-shadow:0 2px 10px ${color}55"></div>
         </div>`;
-        const anchorH=isSelected?40:34;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[90,anchorH],iconAnchor:[45,anchorH]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
       } else {
-        // Hors portée : cadenas gris compact
-        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${0.45*alpha}">
-          <div style="width:24px;height:24px;border-radius:7px;background:#c8c8c8;display:flex;align-items:center;justify-content:center">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </div>
-          <div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid #c8c8c8;margin-top:-1px"></div>
+        // Hors portée : pastille grise avec cadenas
+        sz=22;anchorY=11;
+        markerHtml=`<div style="width:22px;height:22px;border-radius:50%;background:rgba(180,180,180,0.6);display:flex;align-items:center;justify-content:center;opacity:${0.5*alpha};border:2px solid rgba(255,255,255,0.8)">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>`;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[24,32],iconAnchor:[12,32]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:0}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
       }
+
+      const icon=L.divIcon({className:'',html:markerHtml,iconSize:[sz,sz],iconAnchor:[sz/2,anchorY]});
+      const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:isOwn?50:inZone?100:0}).addTo(leafRef.current);
+      marker.on('click',()=>onSelectPost&&onSelectPost(p));
+      markersRef.current[p.id]=marker;
     });
   },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng,JSON.stringify(Object.keys(allCats||{}))]);
 
@@ -1629,6 +1600,15 @@ function App(){
   const [hiddenAuthors,setHiddenAuthors]=useState(new Set());
   const [showFilter,setShowFilter]=useState(false);
   const leafMapRef=useRef(null);
+  const [gpsPillVisible,setGpsPillVisible]=useState(true);
+
+  // Auto-hide GPS pill after 4s when GPS is active
+  useEffect(()=>{
+    if(!gps)return;
+    setGpsPillVisible(true);
+    const t=setTimeout(()=>setGpsPillVisible(false),4000);
+    return()=>clearTimeout(t);
+  },[!!gps]);
 
   const signIn=async()=>{
     setSignLoading(true);setSignError(false);
@@ -1672,11 +1652,10 @@ function App(){
         ),
         h("span",{style:{fontSize:9,fontWeight:isRoot&&cur.id==="map"?700:400,color:isRoot&&cur.id==="map"?"var(--green)":"var(--text3)"}},"Carte")
       ),
-      // Pill Publier centrale
-      h("button",{onClick:()=>push({id:"publish"}),style:{flexShrink:0,display:"flex",alignItems:"center",gap:6,padding:"10px 18px",background:"var(--green)",border:"none",borderRadius:18,cursor:"pointer",boxShadow:"0 4px 16px rgba(29,158,117,0.38)",position:"relative",overflow:"hidden"}},
-        h("div",{style:{position:"absolute",top:0,left:0,right:0,height:"50%",background:"rgba(255,255,255,0.12)",borderRadius:"18px 18px 50% 50%",pointerEvents:"none"}}),
-        h("svg",{width:13,height:13,viewBox:"0 0 14 14",fill:"none",style:{position:"relative",zIndex:1}},h("path",{d:"M7 2v10M2 7h10",stroke:"#fff",strokeWidth:2,strokeLinecap:"round"})),
-        h("span",{style:{fontSize:12,fontWeight:800,color:"#fff",letterSpacing:"-0.01em",position:"relative",zIndex:1}},"Publier")
+      // Pill Publier centrale — compact
+      h("button",{onClick:()=>push({id:"publish"}),style:{flexShrink:0,display:"flex",alignItems:"center",gap:5,padding:"9px 16px",background:"var(--green)",border:"none",borderRadius:16,cursor:"pointer",boxShadow:"0 3px 12px rgba(29,158,117,0.32)"}},
+        h("svg",{width:12,height:12,viewBox:"0 0 14 14",fill:"none"},h("path",{d:"M7 2v10M2 7h10",stroke:"#fff",strokeWidth:2.5,strokeLinecap:"round"})),
+        h("span",{style:{fontSize:12,fontWeight:700,color:"#fff",letterSpacing:"-0.01em"}},"Publier")
       ),
       // Onglet Recherche
       h("button",{onClick:()=>goRoot("search"),style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 4px",border:"none",background:"transparent",cursor:"pointer"}},
@@ -1745,12 +1724,13 @@ function App(){
               :h("div",{style:{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg,${uidHue(myUid)},${uidHue(myUid)}cc)`,border:"2.5px solid rgba(255,255,255,0.95)",boxShadow:"0 3px 12px rgba(29,158,117,0.28)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:"#fff"}},(myUser.pseudo||"?").slice(0,2).toUpperCase())
           ),
           h("div",{style:{flex:1}}),
-          // Indicateur GPS — pill colorée selon l'état
-          h("div",{style:{pointerEvents:"all",display:"flex",alignItems:"center",gap:5,padding:"6px 10px",borderRadius:16,
+          // Indicateur GPS — pill visible si erreur ou pendant les premières secondes
+          (!gps||gpsError||gpsPillVisible)&&h("div",{style:{pointerEvents:"all",display:"flex",alignItems:"center",gap:5,padding:"6px 10px",borderRadius:16,
             background:gps?"rgba(232,247,242,0.95)":gpsError==="denied"?"rgba(254,242,242,0.95)":"rgba(254,249,237,0.95)",
             backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",
             border:gps?"0.5px solid rgba(29,158,117,0.3)":gpsError==="denied"?"0.5px solid rgba(239,68,68,0.3)":"0.5px solid rgba(251,191,36,0.4)",
-            boxShadow:"0 2px 8px rgba(0,0,0,0.06)",cursor:gps?null:"pointer"},
+            boxShadow:"0 2px 8px rgba(0,0,0,0.06)",cursor:gps?null:"pointer",
+            transition:"opacity 0.5s",opacity:gps&&!gpsError?gpsPillVisible?1:0:1},
             onClick:gps?null:()=>setPhase("gps")
           },
             // Pastille pulsante si pas de GPS
@@ -1852,7 +1832,7 @@ function App(){
           display:"flex",
           flexDirection:sheetOpen==="full"?"column":"row",
           gap:sheetOpen==="full"?0:10,
-          padding:sheetOpen==="full"?"0":"0 16px 8px",
+          padding:sheetOpen==="full"?"0":"0 16px 14px",
           scrollbarWidth:"none"
         }},
           // Post sélectionné
