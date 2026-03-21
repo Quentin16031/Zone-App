@@ -79,9 +79,30 @@ const fmtD=m=>m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(1)} km`;
 const fmtDate=ts=>new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
 
 function uidHue(uid){
-  const hs=["#D85A30","#7F77DD","#378ADD","#D4537E","#BA7517","#1D9E75","#5DCAA5","#993C1D"];
+  // 20 couleurs harmonieuses, bien différenciées, lisibles sur fond clair
+  const hs=[
+    "#D75550","#6384C8","#DCA028","#8B6EC8","#40A878",
+    "#D4507A","#5BB8D4","#E8893A","#6DB86B","#C46A8A",
+    "#4A90D9","#B8A830","#7AC8A0","#D4783C","#9B6EC0",
+    "#3BAAB8","#C87840","#5E9E58","#C45050","#6878D0"
+  ];
   const n=uid.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
   return hs[n%hs.length];
+}
+
+// Couleur d'un post : catégorie si définie, sinon couleur de l'auteur
+// cats = tableau des catégories de l'auteur du post
+function postColor(post,authorCats){
+  if(!post.cat||!authorCats)return uidHue(post.uid);
+  // Chaque catégorie hérite d'une couleur dérivée de son id
+  const catColors=[
+    "#D75550","#6384C8","#DCA028","#8B6EC8","#40A878",
+    "#D4507A","#5BB8D4","#E8893A","#6DB86B","#C46A8A",
+    "#4A90D9","#B8A830","#7AC8A0","#D4783C","#9B6EC0",
+    "#3BAAB8","#C87840","#5E9E58","#C45050","#6878D0"
+  ];
+  const n=post.cat.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  return catColors[n%catColors.length];
 }
 
 function compressImg(file){
@@ -124,7 +145,7 @@ const canSee=(p,uid,gps)=>p.uid===uid||(gps&&haversine(gps.lat,gps.lng,p.lat,p.l
 const aLbl=a=>a==="public"?{icon:"🌍",label:"Tout le monde",c:"#1D9E75",bg:"#E1F5EE"}:a==="private"?{icon:"🔒",label:"Moi seul",c:"#888",bg:"#f1efe8"}:{icon:"👥",label:`${Object.keys((a&&a.custom)||{}).length} abonné(s)`,c:"#378ADD",bg:"#E6F1FB"};
 
 // ── CARTE LEAFLET ────────────────────────────────────────
-function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady}){
+function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,allCats}){
   const mapRef=useRef(null);
   const leafRef=useRef(null);
   const markersRef=useRef({});
@@ -160,7 +181,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady})
     myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
   },[gps?.lat,gps?.lng]);
 
-  // Marqueurs posts
+  // Marqueurs posts — Système D
   useEffect(()=>{
     if(!leafRef.current)return;
     Object.values(markersRef.current).forEach(m=>m.remove());
@@ -168,25 +189,61 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady})
     markersRef.current={};circlesRef.current={};
     posts.forEach(p=>{
       if(!p.lat||!p.lng)return;
-      const hue=uidHue(p.uid);
-      const ul=canSee(p,myUid,gps);
+      const inZone=canSee(p,myUid,gps); // dans la zone GPS
       const isSelected=p.id===selectedPostId;
-      const alpha=selectedPostId&&!isSelected?0.5:1;
-      const circleColor=isSelected?"#1D9E75":hue;
-      const circle=L.circle([p.lat,p.lng],{
-        radius:p.radius,color:circleColor,weight:isSelected?2.5:1.5,
-        fillColor:circleColor,fillOpacity:(ul?0.12:0.04)*alpha,
-        dashArray:ul?null:'6 4',opacity:alpha
-      }).addTo(leafRef.current);
+      const dimmed=selectedPostId&&!isSelected; // estomper les non-sélectionnés
+      const alpha=dimmed?0.35:1;
+
+      // ── Couleur du post : catégorie > auteur ──
+      const authorCats=allCats?.[p.uid]||{};
+      const color=postColor(p,authorCats);
+      const userHue=uidHue(p.uid);
+
+      // ── Cercle de zone ──
+      // Vert = visible (on est dedans), gris pointillé = hors portée
+      // Sélectionné = accent vert + bordure plus épaisse
+      const circleOpts=isSelected
+        ?{color:"#1D9E75",weight:2.5,fillColor:"#1D9E75",fillOpacity:0.14,dashArray:null,opacity:alpha}
+        :inZone
+          ?{color:"#1D9E75",weight:1.5,fillColor:"#1D9E75",fillOpacity:0.10*alpha,dashArray:null,opacity:alpha}
+          :{color:"#999",weight:1,fillColor:"#999",fillOpacity:0.03*alpha,dashArray:"5 4",opacity:0.4*alpha};
+      const circle=L.circle([p.lat,p.lng],{radius:p.radius,...circleOpts}).addTo(leafRef.current);
       circlesRef.current[p.id]=circle;
-      const dotColor=isSelected?"#1D9E75":hue;
-      const dotSize=isSelected?18:14;
-      const dot=L.divIcon({className:'',html:`<svg width="${dotSize}" height="${dotSize}" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="${dotColor}" stroke="white" stroke-width="2" opacity="${alpha}"/></svg>`,iconSize:[dotSize,dotSize],iconAnchor:[dotSize/2,dotSize/2]});
-      const marker=L.marker([p.lat,p.lng],{icon:dot,zIndexOffset:isSelected?500:0}).addTo(leafRef.current);
+
+      // ── Marqueur ──
+      // Visible : bulle avec initiales colorées (couleur user)
+      // Hors portée : carré cadenas gris
+      const u=users[p.uid];
+      const initials=(u?.pseudo||"?").slice(0,2).toUpperCase();
+      let markerHtml;
+      if(inZone){
+        // Bulle : avatar initiales + pseudo tronqué, couleur user
+        const pseudo=u?.pseudo?u.pseudo.slice(0,8):"";
+        const sz=isSelected?34:28;
+        const bord=isSelected?`2px solid #1D9E75`:`2px solid #fff`;
+        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha};filter:${dimmed?'grayscale(0.4)':'none'}">
+          <div style="background:#fff;border-radius:${isSelected?12:10}px;padding:3px ${pseudo?'8px':'5px'} 3px 4px;display:flex;align-items:center;gap:4px;box-shadow:0 2px 10px rgba(0,0,0,0.15);border-left:3px solid ${userHue};${isSelected?'box-shadow:0 2px 14px rgba(29,158,117,0.35)':''}">
+            <div style="width:${sz-10}px;height:${sz-10}px;border-radius:${isSelected?7:6}px;background:${userHue};display:flex;align-items:center;justify-content:center;font-size:${isSelected?9:8}px;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>
+            ${pseudo?`<span style="font-size:${isSelected?11:9}px;font-weight:800;color:#0D1117;white-space:nowrap">${pseudo}</span>`:''}
+          </div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #fff;margin-top:-1px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.1))"></div>
+        </div>`;
+      } else {
+        // Cadenas gris — hors portée
+        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${0.5*alpha}">
+          <div style="width:26px;height:26px;border-radius:8px;background:#bbb;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.15)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #bbb;margin-top:-1px"></div>
+        </div>`;
+      }
+      const anchorH=inZone?42:36;
+      const icon=L.divIcon({className:'',html:markerHtml,iconSize:[80,anchorH],iconAnchor:[40,anchorH]});
+      const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:inZone?100:0}).addTo(leafRef.current);
       marker.on('click',()=>onSelectPost&&onSelectPost(p));
       markersRef.current[p.id]=marker;
     });
-  },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng]);
+  },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng,JSON.stringify(Object.keys(allCats||{}))]);
 
   return h("div",{ref:mapRef,style:{width:"100%",height:"100%"}});
 }
@@ -1386,7 +1443,8 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
         users,
         onSelectPost:handleSelectMarker,
         selectedPostId,
-        onMapReady:m=>{ profileMapRef.current=m; }
+        onMapReady:m=>{ profileMapRef.current=m; },
+        allCats
       }),
       // Label flottant si un post est sélectionné
       selectedPostId&&(()=>{
@@ -1640,7 +1698,7 @@ function App(){
           }
         }
       },
-        h(ZoneMap,{posts:filteredPosts,gps,myUid,users,onSelectPost:handleSelectPost,selectedPostId:selectedPost?.id,onMapReady:m=>leafMapRef.current=m})
+        h(ZoneMap,{posts:filteredPosts,gps,myUid,users,onSelectPost:handleSelectPost,selectedPostId:selectedPost?.id,onMapReady:m=>leafMapRef.current=m,allCats})
       ),
 
       // Overlays haut — collés en haut avec safe area
