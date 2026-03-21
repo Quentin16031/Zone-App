@@ -206,7 +206,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
   },[gps?.lat,gps?.lng]);
 
-  // Marqueurs posts — Concept C : Minimal focus (zones au tap uniquement)
+  // Marqueurs posts — Concept B enhanced : pills Zenly + zones sur les autres
   useEffect(()=>{
     if(!leafRef.current)return;
     Object.values(markersRef.current).forEach(m=>m.remove());
@@ -219,60 +219,71 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
       const isSelected=p.id===selectedPostId;
       const isOwn=p.uid===myUid;
       const dimmed=selectedPostId&&!isSelected;
-      const alpha=dimmed?0.3:1;
+      const alpha=dimmed?0.25:1;
       const userColor=uidHue(p.uid);
+      const u=users[p.uid];
+      const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
+      const distTxt=dist!==null?fmtD(dist):"";
 
-      // ── Zone : visible UNIQUEMENT quand ce post est sélectionné ──
+      // ── Zone : cercle visible pour les posts des AUTRES (toujours), pas pour mes posts ──
       const circles=[];
-      if(isSelected){
-        const zoneColor=isOwn?"#1D9E75":userColor;
+      if(!isOwn){
         const c1=L.circle([p.lat,p.lng],{
           radius:p.radius,
-          color:zoneColor,weight:1.2,
-          opacity:0.35,
-          fillColor:zoneColor,fillOpacity:0.07,
+          color:userColor,
+          weight:isSelected?1.8:1,
+          opacity:dimmed?0.1:(isSelected?0.45:0.25),
+          fillColor:userColor,
+          fillOpacity:dimmed?0.02:(isSelected?0.1:0.05),
           interactive:false
         }).addTo(leafRef.current);
         circles.push(c1);
       }
       circlesRef.current[p.id]=circles;
 
-      // ── Marqueur : dot style Apple Maps ──
-      const u=users[p.uid];
       let markerHtml;
 
       if(isOwn){
-        // Mes posts : petit dot teal
-        const sz=isSelected?16:10;
-        const ring=isSelected?26:18;
+        // ── Mes posts : simple dot teal ──
+        const sz=isSelected?14:8;
+        const ring=isSelected?24:16;
         markerHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2.5px solid #fff;box-shadow:0 1px 6px rgba(29,158,117,0.35)"></div>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${isSelected?5:3}px;height:${isSelected?5:3}px;border-radius:50%;background:#fff;pointer-events:none"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2px solid #fff;box-shadow:0 1px 4px rgba(29,158,117,0.3)"></div>
+          ${isSelected?`<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#fff;pointer-events:none"></div>`:''}
         </div>`;
         const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:50}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
-      } else if(inZone){
-        // Autres users in zone : dot coloré avec centre blanc
-        const sz=isSelected?18:14;
-        const ring=isSelected?30:22;
-        markerHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:${userColor};border:2.5px solid #fff;box-shadow:0 1px 8px ${userColor}55"></div>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${isSelected?6:4}px;height:${isSelected?6:4}px;border-radius:50%;background:#fff;pointer-events:none"></div>
-        </div>`;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
+        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:30}).addTo(leafRef.current);
         marker.on('click',()=>onSelectPost&&onSelectPost(p));
         markersRef.current[p.id]=marker;
       } else {
-        // Hors portée : dot gris translucide, pas de centre blanc
-        const sz=dimmed?8:10;
-        markerHtml=`<div style="opacity:${0.4*alpha}">
-          <div style="width:${sz}px;height:${sz}px;border-radius:50%;background:#B0ADA6;border:1.5px solid #D4D1C9;box-shadow:0 1px 3px rgba(0,0,0,0.1)"></div>
+        // ── Posts des autres : pill photo/initiales + pseudo + distance ──
+        const pseudo=(u?.pseudo||"?").slice(0,8);
+        const hasPhoto=!!u?.photo;
+        const pillH=isSelected?38:32;
+        const avatarSz=isSelected?26:22;
+        const fontSize=isSelected?11:10;
+        const distFontSize=isSelected?9:8;
+        const padR=isSelected?12:10;
+
+        // Avatar : photo (img) ou initiales
+        const avatarHtml=hasPhoto
+          ?`<img src="${u.photo}" style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;object-fit:cover;display:block;flex-shrink:0;border:1.5px solid ${userColor}44" />`
+          :`<div style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;background:${userColor};display:flex;align-items:center;justify-content:center;font-size:${isSelected?10:8}px;font-weight:700;color:#fff;flex-shrink:0">${(u?.pseudo||"?").slice(0,2).toUpperCase()}</div>`;
+
+        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
+          <div style="background:#fff;border-radius:${pillH/2}px;height:${pillH}px;padding:${(pillH-avatarSz)/2}px ${padR}px ${(pillH-avatarSz)/2}px ${(pillH-avatarSz)/2}px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.12);border:1.5px solid ${isSelected?userColor:userColor+'66'}">
+            ${avatarHtml}
+            <div style="display:flex;flex-direction:column;line-height:1.2">
+              <span style="font-size:${fontSize}px;font-weight:700;color:#1a1a2e;white-space:nowrap">${pseudo}</span>
+              ${distTxt?`<span style="font-size:${distFontSize}px;font-weight:500;color:${userColor};white-space:nowrap;opacity:0.8">${distTxt}</span>`:''}
+            </div>
+          </div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #fff;margin-top:-1px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.08))"></div>
         </div>`;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:0}).addTo(leafRef.current);
+        const anchorH=pillH+5;
+        const pillW=isSelected?120:100;
+        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[pillW,anchorH],iconAnchor:[pillW/2,anchorH]});
+        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
         marker.on('click',()=>onSelectPost&&onSelectPost(p));
         markersRef.current[p.id]=marker;
       }
