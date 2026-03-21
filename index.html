@@ -206,7 +206,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
   },[gps?.lat,gps?.lng]);
 
-  // Marqueurs posts — Concept 4 : double anneau + dot blanc central
+  // Marqueurs posts — Concept C : Minimal focus (zones au tap uniquement)
   useEffect(()=>{
     if(!leafRef.current)return;
     Object.values(markersRef.current).forEach(m=>m.remove());
@@ -220,95 +220,64 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
       const isOwn=p.uid===myUid;
       const dimmed=selectedPostId&&!isSelected;
       const alpha=dimmed?0.3:1;
+      const userColor=uidHue(p.uid);
 
-      const authorCats=allCats?.[p.uid]||{};
-      const color=postColor(p,authorCats);
-      const userHue=uidHue(p.uid);
-
-      // ── Zones : concept 4 double anneau ──
+      // ── Zone : visible UNIQUEMENT quand ce post est sélectionné ──
       const circles=[];
-      if(inZone){
-        // Anneau externe subtil
+      if(isSelected){
+        const zoneColor=isOwn?"#1D9E75":userColor;
         const c1=L.circle([p.lat,p.lng],{
           radius:p.radius,
-          color,weight:0.8,
-          opacity:dimmed?0.12:0.32,
-          fillColor:color,fillOpacity:dimmed?0.03:0.08,
-          interactive:false
-        }).addTo(leafRef.current);
-        // Anneau interne vif (rayon légèrement plus petit pour l'effet double)
-        const c2=L.circle([p.lat,p.lng],{
-          radius:p.radius*0.78,
-          color,weight:isSelected?3:2,
-          opacity:dimmed?0.35:0.85,
-          fillColor:color,fillOpacity:dimmed?0.05:0.13,
-          interactive:false
-        }).addTo(leafRef.current);
-        circles.push(c1,c2);
-      } else {
-        // Hors portée : fantôme pointillé
-        const c1=L.circle([p.lat,p.lng],{
-          radius:p.radius,
-          color:dark?'#ffffff':'#999999',
-          weight:1,opacity:0.13,
-          fillOpacity:0,
-          dashArray:'4 5',
+          color:zoneColor,weight:1.2,
+          opacity:0.35,
+          fillColor:zoneColor,fillOpacity:0.07,
           interactive:false
         }).addTo(leafRef.current);
         circles.push(c1);
       }
       circlesRef.current[p.id]=circles;
 
-      // ── Marqueur principal ──
+      // ── Marqueur : dot style Apple Maps ──
       const u=users[p.uid];
-      const initials=(u?.pseudo||"?").slice(0,2).toUpperCase();
       let markerHtml;
-      const bgDot=dark?'rgba(22,28,40,0.96)':'#fff';
 
       if(isOwn){
-        const dotSize=isSelected?14:10;
-        const ringSize=isSelected?28:22;
-        markerHtml=`<div style="position:relative;width:${ringSize}px;height:${ringSize}px;opacity:${alpha}">
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${dotSize+10}px;height:${dotSize+10}px;border-radius:50%;background:${color};opacity:0.3"></div>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 10px ${color}88"></div>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#fff;pointer-events:none"></div>
+        // Mes posts : petit dot teal
+        const sz=isSelected?16:10;
+        const ring=isSelected?26:18;
+        markerHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2.5px solid #fff;box-shadow:0 1px 6px rgba(29,158,117,0.35)"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${isSelected?5:3}px;height:${isSelected?5:3}px;border-radius:50%;background:#fff;pointer-events:none"></div>
         </div>`;
-        const sz=ringSize;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
         const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:50}).addTo(leafRef.current);
         marker.on('click',()=>onSelectPost&&onSelectPost(p));
         markersRef.current[p.id]=marker;
       } else if(inZone){
-        const pseudo=u?.pseudo?u.pseudo.slice(0,7):"";
-        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
-          <div style="background:${bgDot};border-radius:${isSelected?12:10}px;padding:4px ${pseudo?'9px':'5px'} 4px 4px;display:flex;align-items:center;gap:5px;box-shadow:0 2px 12px rgba(0,0,0,0.25),${isSelected?`0 0 0 2px ${color}`:`0 0 0 0 transparent`};border-left:3px solid ${userHue}">
-            <div style="position:relative;width:${isSelected?22:18}px;height:${isSelected?22:18}px;border-radius:${isSelected?8:6}px;background:${userHue};display:flex;align-items:center;justify-content:center;font-size:${isSelected?9:8}px;font-weight:900;color:#fff;flex-shrink:0">
-              ${initials}
-              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.55);pointer-events:none"></div>
-            </div>
-            ${pseudo?`<span style="font-size:${isSelected?11:9}px;font-weight:800;color:${dark?'rgba(255,255,255,0.92)':'#0D1117'};white-space:nowrap;letter-spacing:-0.01em">${pseudo}</span>`:''}
-          </div>
-          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${bgDot};margin-top:-1px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.15))"></div>
+        // Autres users in zone : dot coloré avec centre blanc
+        const sz=isSelected?18:14;
+        const ring=isSelected?30:22;
+        markerHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:${userColor};border:2.5px solid #fff;box-shadow:0 1px 8px ${userColor}55"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${isSelected?6:4}px;height:${isSelected?6:4}px;border-radius:50%;background:#fff;pointer-events:none"></div>
         </div>`;
-        const anchorH=isSelected?40:34;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[90,anchorH],iconAnchor:[45,anchorH]});
+        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
         const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
         marker.on('click',()=>onSelectPost&&onSelectPost(p));
         markersRef.current[p.id]=marker;
       } else {
-        // Hors portée : cadenas discret, adapté fond dark
+        // Hors portée : dot gris translucide, pas de centre blanc
+        const sz=dimmed?8:10;
         markerHtml=`<div style="opacity:${0.4*alpha}">
-          <div style="width:22px;height:22px;border-radius:7px;background:${dark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.1)'};border:1px solid ${dark?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.15)'};display:flex;align-items:center;justify-content:center">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="${dark?'rgba(255,255,255,0.7)':'rgba(0,0,0,0.5)'}" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </div>
+          <div style="width:${sz}px;height:${sz}px;border-radius:50%;background:#B0ADA6;border:1.5px solid #D4D1C9;box-shadow:0 1px 3px rgba(0,0,0,0.1)"></div>
         </div>`;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[22,22],iconAnchor:[11,11]});
+        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
         const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:0}).addTo(leafRef.current);
         marker.on('click',()=>onSelectPost&&onSelectPost(p));
         markersRef.current[p.id]=marker;
       }
     });
-  },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng,JSON.stringify(Object.keys(allCats||{}))]);
+  },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng]);
 
   return h("div",{ref:mapRef,style:{width:"100%",height:"100%"}});
 }
@@ -1789,7 +1758,7 @@ function App(){
           }
         }
       },
-        h(ZoneMap,{posts:filteredPosts,gps,myUid,users,onSelectPost:handleSelectPost,selectedPostId:selectedPost?.id,onMapReady:m=>leafMapRef.current=m,allCats,dark:true})
+        h(ZoneMap,{posts:filteredPosts,gps,myUid,users,onSelectPost:handleSelectPost,selectedPostId:selectedPost?.id,onMapReady:m=>leafMapRef.current=m,allCats})
       ),
 
       // Overlays haut — collés en haut avec safe area
