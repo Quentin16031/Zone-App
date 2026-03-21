@@ -1033,7 +1033,7 @@ function SearchScreen({users,myUid,onGoProfile}){
 
   return h("div",{style:{paddingBottom:100,minHeight:"100vh"}},
     // Header search — glass
-    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid rgba(255,255,255,0.6)",padding:"calc(52px + var(--sat)) 16px 12px",display:"flex",alignItems:"center",gap:12}},
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid rgba(255,255,255,0.6)",padding:"calc(var(--sat) + 14px) 16px 12px",display:"flex",alignItems:"center",gap:12}},
       h("div",{style:{flex:1,position:"relative"}},
         h("div",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}},
           h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text-light)",strokeWidth:2.5},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
@@ -1376,7 +1376,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
   };
 
   if(editMode&&isSelf) return h("div",{style:{background:"#fff",minHeight:"100vh"}},
-    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid var(--border)",padding:"calc(52px + var(--sat)) 24px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid var(--border)",padding:"calc(var(--sat) + 14px) 24px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}},
       h("button",{onClick:()=>setEditMode(false),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0}},"Annuler"),
       h("span",{style:{fontSize:15,fontWeight:500}},"Modifier le profil"),
       h("button",{onClick:saveEdit,style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"#1D9E75",fontWeight:500,padding:0}},"Sauvegarder")
