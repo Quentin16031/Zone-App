@@ -1701,7 +1701,9 @@ function App(){
   const isMapRoot=cur.id==="map"&&isRoot;
 
   // Tab bar 2 onglets + pill Publier centrale
-  const TabBar=()=>h("div",{style:{position:"fixed",bottom:"calc(16px + var(--sab))",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:428,zIndex:50}},
+  const TabBar=()=>{
+    if(cur.id==="post"||cur.id==="photo")return null;
+    return h("div",{style:{position:"fixed",bottom:"calc(16px + var(--sab))",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:428,zIndex:50}},
     h("div",{style:{background:"rgba(255,255,255,0.78)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",borderRadius:28,boxShadow:"0 4px 28px rgba(31,38,135,0.12),0 1px 0 rgba(255,255,255,0.9)",border:"1px solid rgba(255,255,255,0.6)",padding:"8px 6px",display:"flex",alignItems:"center",gap:4}},
       // Onglet Carte
       h("button",{onClick:()=>goRoot("map"),style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 4px",border:"none",background:"transparent",cursor:"pointer"}},
@@ -1724,7 +1726,7 @@ function App(){
         h("span",{style:{fontSize:9,fontWeight:isRoot&&cur.id==="search"?700:500,color:isRoot&&cur.id==="search"?"var(--zone-teal)":"var(--zone-text-light)"}},"Recherche")
       )
     )
-  );
+  );};
 
   // État bottom sheet (hooks already declared above)
   const myUser=users[myUid]||{};
@@ -2006,7 +2008,7 @@ function App(){
         onGoProfile:uid=>push({id:"profile",uk:uid}),onBack:pop
       }),
       cur.id==="publish"&&h(PublishScreen,{myUid,gps,cats:myCats,onBack:pop}),
-      cur.id==="post"&&cur.post&&h("div",{style:{minHeight:"100vh",paddingBottom:40}},
+      cur.id==="post"&&cur.post&&h("div",{style:{minHeight:"100vh",paddingBottom:"calc(100px + var(--sab))"}},
         h("div",{style:{padding:"calc(52px + var(--sat)) 0 8px",display:"flex",alignItems:"center",gap:12,paddingLeft:16}},
           h("button",{onClick:pop,style:{width:40,height:40,borderRadius:12,background:"rgba(255,255,255,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(31,38,135,0.06)",flexShrink:0}},
             h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
