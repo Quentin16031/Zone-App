@@ -1033,7 +1033,7 @@ function SearchScreen({users,myUid,onGoProfile}){
 
   return h("div",{style:{paddingBottom:100,minHeight:"100vh"}},
     // Header search — glass
-    h("div",{style:{padding:"20px 16px 12px",display:"flex",alignItems:"center",gap:12}},
+    h("div",{style:{padding:"calc(var(--sat) + 16px) 16px 12px",display:"flex",alignItems:"center",gap:12}},
       h("div",{style:{flex:1,position:"relative"}},
         h("div",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}},
           h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text-light)",strokeWidth:2.5},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
@@ -1376,7 +1376,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
   };
 
   if(editMode&&isSelf) return h("div",{style:{padding:"0 24px 60px",background:"#fff",minHeight:"100vh"}},
-    h("div",{style:{marginTop:16,display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}},
+    h("div",{style:{marginTop:"calc(var(--sat) + 16px)",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}},
       h("button",{onClick:()=>setEditMode(false),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0}},"Annuler"),
       h("span",{style:{fontSize:15,fontWeight:500}},"Modifier le profil"),
       h("button",{onClick:saveEdit,style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"#1D9E75",fontWeight:500,padding:0}},"Sauvegarder")
