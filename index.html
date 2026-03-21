@@ -2018,8 +2018,8 @@ function IOSInstallBanner(){
   if(!show||dismissed)return null;
 
   return h("div",{style:{
-    position:"fixed",bottom:"calc(16px + var(--sab))",left:"50%",transform:"translateX(-50%)",
-    width:"calc(100% - 32px)",maxWidth:400,zIndex:200,
+    position:"fixed",bottom:"calc(16px + var(--sab))",left:16,right:16,
+    maxWidth:428,margin:"0 auto",zIndex:200,
     background:"rgba(13,17,23,0.97)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",
     borderRadius:20,padding:"16px 16px 14px",
     boxShadow:"0 8px 40px rgba(0,0,0,0.4),0 0 0 0.5px rgba(255,255,255,0.1)",
