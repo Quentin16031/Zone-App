@@ -948,32 +948,41 @@ function SearchScreen({users,myUid,onGoProfile}){
 
 // ── ACCÈS CATÉGORIE ───────────────────────────────────────
 function AccessScreen({cat,myUid,users,onBack}){
-  const isPub=cat.access==="public";
-  const isPrv=cat.access==="private";
-  const isCst=cat.access&&typeof cat.access==="object";
-  // customSel : liste des uids autorisés (robuste même si access est mal formé)
-  const customSel=isCst?Object.keys(cat.access?.custom||{}):[]; 
-  // Mes abonnés = ceux qui me suivent ET tous les users connus (fallback)
-  // Deux sources : ceux qui ont myUid dans leur following, ET les users qui interagissent
+  // State local pour l'affichage — mis à jour immédiatement au click,
+  // sans attendre Firebase. Initialisé depuis cat.access.
+  const initMode=()=>{
+    if(cat.access==="private")return "private";
+    if(typeof cat.access==="object")return "custom";
+    return "public";
+  };
+  const [mode,setModeLocal]=useState(initMode);
+  // Sync si cat change depuis Firebase (autre device, etc.)
+  useEffect(()=>{ setModeLocal(initMode()); },[cat.access]);
+
+  const isPub=mode==="public";
+  const isPrv=mode==="private";
+  const isCst=mode==="custom";
+  // customSel depuis Firebase (source de vérité)
+  const customSel=typeof cat.access==="object"?Object.keys(cat.access?.custom||{}):[];
+
   const followers=Object.entries(users)
-    .filter(([uid,u])=>uid!==myUid&&u?.pseudo) // tous les users connus
+    .filter(([uid,u])=>uid!==myUid&&u?.pseudo)
     .sort(([ua,a],[ub,b])=>{
-      // Trier : abonnés d'abord, puis le reste
       const aF=!!(a?.following&&a.following[myUid]);
       const bF=!!(b?.following&&b.following[myUid]);
-      if(aF&&!bF)return -1;
-      if(!aF&&bF)return 1;
+      if(aF&&!bF)return -1; if(!aF&&bF)return 1;
       return (a?.pseudo||"").localeCompare(b?.pseudo||"");
     })
     .map(([uid,u])=>({uid,u,isFollower:!!(u?.following&&u.following[myUid])}));
 
   const setMode=m=>{
-    const acc=m==="public"?"public":m==="private"?"private":{custom:isCst?cat.access.custom:{}};
+    setModeLocal(m); // mise à jour locale immédiate → liste s'affiche sans délai
+    const cur=typeof cat.access==="object"?cat.access.custom:{};
+    const acc=m==="public"?"public":m==="private"?"private":{custom:cur||{}};
     saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:acc});
   };
   const tog=uid=>{
-    // Toujours lire depuis cat.access.custom pour avoir l'état le plus récent
-    const cur={...(isCst?cat.access.custom:{})}; 
+    const cur={...(typeof cat.access==="object"?cat.access.custom:{})};
     if(cur[uid])delete cur[uid];else cur[uid]=true;
     saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:{custom:cur}});
   };
@@ -1347,11 +1356,21 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,onBack,onGoProfile,onEdit
             const postCount=mine.filter(p=>p.cat===c.id).length;
             const isActive=catFilter===c.id;
             const acc=c.access||"public";
-            return h("div",{key:c.id,onClick:()=>{setCatFilter(isActive?"all":c.id);setSelectedPostId(null);},style:{flexShrink:0,background:"#fff",borderRadius:14,padding:"10px 12px",minWidth:76,textAlign:"center",boxShadow:isActive?`0 0 0 2px var(--green),var(--shadow)`:"var(--shadow)",cursor:"pointer",position:"relative",overflow:"hidden"}},
-              h("div",{style:{position:"absolute",top:5,right:5,background:isActive?"var(--green)":acc==="private"?"var(--text3)":acc==="public"?"var(--green)":"#378ADD",color:"#fff",fontSize:8,fontWeight:700,borderRadius:5,padding:"1px 4px",lineHeight:1.4}},postCount),
-              h("div",{style:{fontSize:22,marginBottom:5}},c.emoji),
-              h("div",{style:{fontSize:10,fontWeight:700,color:"var(--text)"}},c.name),
-              h("div",{style:{fontSize:8,fontWeight:600,color:accColor(acc),marginTop:2}},`${accIcon(acc)} ${acc==="public"?"Public":acc==="private"?"Privé":"Abonnés"}`)
+            return h("div",{key:c.id,style:{flexShrink:0,background:"#fff",borderRadius:14,minWidth:80,boxShadow:isActive?`0 0 0 2px var(--green),var(--shadow)`:"var(--shadow)",overflow:"hidden",position:"relative"}},
+              // Zone tap filtre (haut de la tile)
+              h("div",{onClick:()=>{setCatFilter(isActive?"all":c.id);setSelectedPostId(null);},style:{padding:"10px 12px 6px",textAlign:"center",cursor:"pointer"}},
+                h("div",{style:{position:"absolute",top:5,right:5,background:isActive?"var(--green)":acc==="private"?"var(--text3)":acc==="public"?"var(--green)":"#378ADD",color:"#fff",fontSize:8,fontWeight:700,borderRadius:5,padding:"1px 4px",lineHeight:1.4}},postCount),
+                h("div",{style:{fontSize:22,marginBottom:4}},c.emoji),
+                h("div",{style:{fontSize:10,fontWeight:700,color:"var(--text)"}},c.name)
+              ),
+              // Bouton accès en bas — séparé visuellement
+              h("div",{onClick:e=>{e.stopPropagation();onEditAccess(c.id);},style:{
+                borderTop:"0.5px solid var(--border)",padding:"4px 8px",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:3,
+                cursor:"pointer",background:"transparent"
+              }},
+                h("span",{style:{fontSize:8,fontWeight:700,color:accColor(acc)}},[accIcon(acc)," ",acc==="public"?"Public":acc==="private"?"Privé":"Abonnés"])
+              )
             );
           })
         )
