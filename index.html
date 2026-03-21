@@ -1431,8 +1431,8 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
     // ② PROFIL INFO — glass card
     h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"0 16px 16px",borderBottom:"1px solid rgba(255,255,255,0.6)"}},
       u.photo
-        ?h("img",{src:u.photo,style:{width:58,height:58,borderRadius:18,objectFit:"cover",border:"3px solid #fff",marginTop:-29,boxShadow:`0 4px 16px ${coverColor}44`,display:"block",position:"relative",zIndex:2}})
-        :h("div",{style:{width:58,height:58,borderRadius:18,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,border:"3px solid #fff",marginTop:-29,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:900,color:"#fff",boxShadow:`0 4px 16px ${coverColor}44`,position:"relative",zIndex:2}},(u.pseudo||"?").slice(0,2).toUpperCase()),
+        ?h("img",{src:u.photo,style:{width:80,height:80,borderRadius:24,objectFit:"cover",border:"3.5px solid #fff",marginTop:-40,marginLeft:56,boxShadow:`0 6px 24px ${coverColor}55`,display:"block",position:"relative",zIndex:2}})
+        :h("div",{style:{width:80,height:80,borderRadius:24,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,border:"3.5px solid #fff",marginTop:-40,marginLeft:56,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:900,color:"#fff",boxShadow:`0 6px 24px ${coverColor}55`,position:"relative",zIndex:2}},(u.pseudo||"?").slice(0,2).toUpperCase()),
 
       h("div",{style:{fontSize:20,fontWeight:900,color:"var(--text)",letterSpacing:"-0.04em",marginTop:8,lineHeight:1.1}},u.pseudo||"Utilisateur"),
       (u.bio||u.ville)&&h("div",{style:{fontSize:13,color:"var(--text2)",marginTop:5,lineHeight:1.5}},
@@ -1786,8 +1786,8 @@ function App(){
           // Avatar profil — rounded-rect style Bump
           h("div",{style:{pointerEvents:"all",cursor:"pointer"},onClick:()=>push({id:"profile",uk:myUid})},
             myUser.photo
-              ?h("img",{src:myUser.photo,style:{width:40,height:40,borderRadius:12,objectFit:"cover",border:"2.5px solid rgba(255,255,255,0.95)",boxShadow:"0 3px 12px rgba(29,158,117,0.28)",display:"block"}})
-              :h("div",{style:{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg,${uidHue(myUid)},${uidHue(myUid)}cc)`,border:"2.5px solid rgba(255,255,255,0.95)",boxShadow:"0 3px 12px rgba(29,158,117,0.28)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:"#fff"}},(myUser.pseudo||"?").slice(0,2).toUpperCase())
+              ?h("img",{src:myUser.photo,style:{width:48,height:48,borderRadius:14,objectFit:"cover",border:"2.5px solid rgba(255,255,255,0.95)",boxShadow:"0 4px 16px rgba(29,158,117,0.32)",display:"block"}})
+              :h("div",{style:{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg,${uidHue(myUid)},${uidHue(myUid)}cc)`,border:"2.5px solid rgba(255,255,255,0.95)",boxShadow:"0 4px 16px rgba(29,158,117,0.32)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"#fff"}},(myUser.pseudo||"?").slice(0,2).toUpperCase())
           ),
           h("div",{style:{flex:1}}),
           // Indicateur GPS — pill colorée selon l'état
