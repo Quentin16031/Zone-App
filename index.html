@@ -1033,7 +1033,7 @@ function SearchScreen({users,myUid,onGoProfile}){
 
   return h("div",{style:{paddingBottom:100,minHeight:"100vh"}},
     // Header search — glass
-    h("div",{style:{padding:"calc(var(--sat) + 16px) 16px 12px",display:"flex",alignItems:"center",gap:12}},
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid rgba(255,255,255,0.6)",padding:"calc(52px + var(--sat)) 16px 12px",display:"flex",alignItems:"center",gap:12}},
       h("div",{style:{flex:1,position:"relative"}},
         h("div",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}},
           h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text-light)",strokeWidth:2.5},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
@@ -1375,12 +1375,13 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
     setEditMode(false);setEPhoto(null);
   };
 
-  if(editMode&&isSelf) return h("div",{style:{padding:"0 24px 60px",background:"#fff",minHeight:"100vh"}},
-    h("div",{style:{marginTop:"calc(var(--sat) + 16px)",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}},
+  if(editMode&&isSelf) return h("div",{style:{background:"#fff",minHeight:"100vh"}},
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid var(--border)",padding:"calc(52px + var(--sat)) 24px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}},
       h("button",{onClick:()=>setEditMode(false),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0}},"Annuler"),
       h("span",{style:{fontSize:15,fontWeight:500}},"Modifier le profil"),
       h("button",{onClick:saveEdit,style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"#1D9E75",fontWeight:500,padding:0}},"Sauvegarder")
     ),
+    h("div",{style:{padding:"20px 24px 60px"}},
     h("div",{style:{display:"flex",justifyContent:"center",marginBottom:20}},
       h("div",{style:{position:"relative",cursor:"pointer"},onClick:()=>fileRef.current?.click()},
         (ePhoto||u.photo)?h("img",{src:ePhoto||u.photo,style:{width:88,height:88,borderRadius:"50%",objectFit:"cover",display:"block",border:"3px solid #fff",outline:"2px solid var(--border2)"}})
@@ -1395,6 +1396,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
       h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Ville"),h("input",{value:eVille||u.ville||"",onChange:e=>setEVille(e.target.value),maxLength:40,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}))
     ),
     h("button",{onClick:()=>{auth.signOut();},style:{marginTop:28,width:"100%",padding:11,fontSize:13,background:"transparent",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--red)"}},"Se déconnecter")
+    )
   );
 
   // Couleur de la cover : vert pour soi, hue de l'user pour les autres
