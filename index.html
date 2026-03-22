@@ -1496,65 +1496,63 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
 
   return h("div",{style:{paddingBottom:80,minHeight:"100vh"}},
 
-    // ① COVER — plus haute, absorbe la Dynamic Island
-    h("div",{style:{position:"relative",height:`calc(160px + var(--sat))`,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,overflow:"visible",flexShrink:0,zIndex:2}},
+    // ① COVER — grande, absorbe la Dynamic Island
+    h("div",{style:{position:"relative",height:`calc(175px + var(--sat))`,background:`linear-gradient(145deg,${coverColor} 0%,${coverColorDeep} 100%)`,overflow:"visible",flexShrink:0,zIndex:2}},
       h("div",{style:{position:"absolute",inset:0,overflow:"hidden",borderRadius:0},
       },h("div",{style:{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(45deg,rgba(255,255,255,0.05) 0px,rgba(255,255,255,0.05) 1px,transparent 1px,transparent 9px)",pointerEvents:"none"}})
       ),
 
-      // Flèche retour — sur la cover, lisible
-      h("button",{onClick:onBack,style:{position:"absolute",top:"calc(var(--sat) + 14px)",left:16,width:36,height:36,borderRadius:12,background:"rgba(255,255,255,0.2)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",border:"1px solid rgba(255,255,255,0.3)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:5}},
-        h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"rgba(255,255,255,0.95)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+      // Flèche retour — fond sombre, contraste maximal sur toute couleur
+      h("button",{onClick:onBack,style:{position:"absolute",top:"calc(var(--sat) + 14px)",left:16,width:38,height:38,borderRadius:13,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:5}},
+        h("svg",{width:17,height:17,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"},h("polyline",{points:"15 18 9 12 15 6"}))
       ),
 
-      // Bouton ⋯ / options — sur la cover à droite
-      h("div",{style:{position:"absolute",top:"calc(var(--sat) + 14px)",right:16,zIndex:5}},
+      // Bouton action haut-droite — dans la cover (Modifier / Suivre / options)
+      h("div",{style:{position:"absolute",top:"calc(var(--sat) + 14px)",right:16,zIndex:5,display:"flex",gap:8,alignItems:"center"}},
         isSelf
-          ? null
-          : h("div",{style:{position:"relative"}},
-              h("button",{onClick:()=>setOpt(v=>!v),style:{width:36,height:36,borderRadius:12,background:"rgba(255,255,255,0.2)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",border:"1px solid rgba(255,255,255,0.3)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},
-                h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none"},
-                  h("circle",{cx:12,cy:5,r:1.4,fill:"rgba(255,255,255,0.95)"}),
-                  h("circle",{cx:12,cy:12,r:1.4,fill:"rgba(255,255,255,0.95)"}),
-                  h("circle",{cx:12,cy:19,r:1.4,fill:"rgba(255,255,255,0.95)"})
+          ? h("button",{onClick:()=>setEditMode(true),style:{padding:"9px 16px",fontSize:12,fontWeight:700,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",borderRadius:13,cursor:"pointer",color:"#fff",whiteSpace:"nowrap"}},"Modifier ✎")
+          : isB
+            ? h("button",{onClick:()=>doUnblock(myUid,uid),style:{padding:"9px 16px",fontSize:12,fontWeight:700,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",borderRadius:13,cursor:"pointer",color:"#fff"}},"Débloquer")
+            : h(React.Fragment,null,
+                h("button",{onClick:()=>toggleFollow(myUid,uid,isF),style:{padding:"9px 16px",fontSize:12,fontWeight:700,background:isF?"rgba(0,0,0,0.28)":"rgba(255,255,255,0.22)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:13,cursor:"pointer",color:"#fff",whiteSpace:"nowrap"}},isF?"Abonné ✓":"Suivre"),
+                h("div",{style:{position:"relative"}},
+                  h("button",{onClick:()=>setOpt(v=>!v),style:{width:38,height:38,borderRadius:13,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},
+                    h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none"},
+                      h("circle",{cx:12,cy:5,r:1.4,fill:"rgba(255,255,255,0.95)"}),
+                      h("circle",{cx:12,cy:12,r:1.4,fill:"rgba(255,255,255,0.95)"}),
+                      h("circle",{cx:12,cy:19,r:1.4,fill:"rgba(255,255,255,0.95)"})
+                    )
+                  ),
+                  opt&&h("div",{style:{position:"absolute",right:0,top:"calc(100% + 8px)",background:"#fff",borderRadius:"var(--r)",zIndex:30,minWidth:150,overflow:"hidden",boxShadow:"var(--shadow2)"}},
+                    h("button",{onClick:()=>{doBlock(myUid,uid);setOpt(false);},style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🚫 Bloquer"),
+                    h("button",{onClick:()=>setOpt(false),style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text2)"}},"🚩 Signaler")
+                  )
                 )
-              ),
-              opt&&h("div",{style:{position:"absolute",right:0,top:"calc(100% + 8px)",background:"#fff",borderRadius:"var(--r)",zIndex:30,minWidth:150,overflow:"hidden",boxShadow:"var(--shadow2)"}},
-                h("button",{onClick:()=>{doBlock(myUid,uid);setOpt(false);},style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🚫 Bloquer"),
-                h("button",{onClick:()=>setOpt(false),style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text2)"}},"🚩 Signaler")
               )
-            )
       ),
 
-      // Avatar — ancré en bas-gauche de la cover, déborde vers le bas
+      // Pseudo + ville dans la cover, à droite de l'espace avatar
+      h("div",{style:{position:"absolute",bottom:18,left:122,right:16}},
+        h("div",{style:{fontSize:18,fontWeight:900,color:"#fff",letterSpacing:"-0.03em",lineHeight:1.15,textShadow:"0 1px 6px rgba(0,0,0,0.25)"}},(u.pseudo||"Utilisateur")),
+        u.ville&&h("div",{style:{fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:3}},`📍 ${u.ville}`)
+      ),
+
+      // Avatar — ancré en bas-gauche, déborde vers le bas
       h("div",{style:{position:"absolute",bottom:-44,left:16,zIndex:4}},
         u.photo
-          ?h("img",{src:u.photo,style:{width:88,height:88,borderRadius:26,objectFit:"cover",border:`3px solid rgba(255,255,255,0.9)`,boxShadow:`0 4px 20px ${coverColor}44`,display:"block"}})
-          :h("div",{style:{width:88,height:88,borderRadius:26,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,border:`3px solid rgba(255,255,255,0.9)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:900,color:"#fff",boxShadow:`0 4px 20px ${coverColor}44`}},(u.pseudo||"?").slice(0,2).toUpperCase())
+          ?h("img",{src:u.photo,style:{width:88,height:88,borderRadius:26,objectFit:"cover",border:"2px solid rgba(255,255,255,0.9)",boxShadow:`0 4px 18px ${coverColor}33`,display:"block"}})
+          :h("div",{style:{width:88,height:88,borderRadius:26,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,border:"2px solid rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:900,color:"#fff",boxShadow:`0 4px 18px ${coverColor}33`}},(u.pseudo||"?").slice(0,2).toUpperCase())
       )
     ),
 
-    // ② PROFIL INFO — glass card, padding-top pour laisser la place à l'avatar
-    h("div",{style:{background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"54px 16px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.06)"}},
+    // ② PROFIL INFO — allégée : bio + stats (pseudo/ville sont dans la cover)
+    h("div",{style:{background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"56px 16px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.06)"}},
 
-      // Nom + action (Suivre / Modifier) sur la même ligne
-      h("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}},
-        h("div",{style:{flex:1,minWidth:0}},
-          h("div",{style:{fontSize:20,fontWeight:900,color:"var(--text)",letterSpacing:"-0.04em",lineHeight:1.1}},u.pseudo||"Utilisateur"),
-          (u.bio||u.ville)&&h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:4,lineHeight:1.5}},
-            [u.ville&&`📍 ${u.ville}`,u.bio].filter(Boolean).join(" · ")
-          )
-        ),
-        // Action principale (Modifier / Suivre / Débloquer)
-        isSelf
-          ?h("button",{onClick:()=>setEditMode(true),style:{flexShrink:0,padding:"8px 14px",fontSize:12,fontWeight:700,background:"linear-gradient(135deg,#1DBEAA,#00D4FF)",color:"#fff",border:"none",borderRadius:12,cursor:"pointer",boxShadow:"0 3px 10px rgba(29,190,170,0.3)",marginTop:2}},"Modifier")
-          :isB
-            ?h("button",{onClick:()=>doUnblock(myUid,uid),style:{flexShrink:0,padding:"8px 14px",fontSize:12,fontWeight:700,background:"var(--bg2)",color:"var(--text2)",border:"none",borderRadius:12,cursor:"pointer",marginTop:2}},"Débloquer")
-            :h("button",{onClick:()=>toggleFollow(myUid,uid,isF),style:{flexShrink:0,padding:"8px 14px",fontSize:12,fontWeight:700,background:isF?`${coverColor}18`:coverColor,color:isF?coverColor:"#fff",border:isF?`1.5px solid ${coverColor}44`:"none",borderRadius:12,cursor:"pointer",boxShadow:isF?"none":`0 3px 10px ${coverColor}44`,marginTop:2}},isF?"Abonné ✓":"Suivre")
-      ),
+      // Bio seulement
+      u.bio&&h("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.55,marginBottom:14}},u.bio),
 
       // STATS
-      h("div",{style:{display:"flex",borderRadius:14,overflow:"hidden",background:"rgba(0,0,0,0.04)",margin:"14px 0 0"}},
+      h("div",{style:{display:"flex",borderRadius:14,overflow:"hidden",background:"rgba(0,0,0,0.04)",marginTop:u.bio?0:0}},
         h("div",{style:{flex:1,padding:"10px 4px",textAlign:"center",cursor:"default"}},
           h("div",{style:{fontSize:18,fontWeight:900,color:"var(--text)",letterSpacing:"-0.02em"}},mine.length),
           h("div",{style:{fontSize:9,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}},"Posts")
