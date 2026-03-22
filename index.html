@@ -963,7 +963,7 @@ function PublishScreen({myUid,gps,cats,onBack}){
 
   // ── ÉTAPE RECADRAGE ──
   if(step==="crop"&&rawPhoto) return h("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,rgba(29,190,170,0.06) 0%,rgba(155,111,255,0.06) 100%)",padding:"0 16px 40px"}},
-    h("div",{style:{paddingTop:"calc(56px + var(--sat))",display:"flex",alignItems:"center",gap:14,marginBottom:20}},
+    h("div",{style:{paddingTop:"calc(52px + var(--sat))",display:"flex",alignItems:"center",gap:14,marginBottom:20}},
       h(BackBtn,{onClick:()=>{setRawPhoto(null);setStep("form");}}),
       h("span",{style:{fontSize:17,fontWeight:700}},"Recadrer la photo")
     ),
@@ -1105,7 +1105,7 @@ function SearchScreen({users,myUid,onGoProfile}){
       .map(({uid,u})=>[uid,u]);
   },[q,users,myUid]);
 
-  return h("div",{style:{paddingBottom:100,minHeight:"100vh"}},
+  return h("div",{style:{paddingBottom:"calc(100px + var(--sab))",minHeight:"100vh"}},
     // Header search — glass
     h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid rgba(255,255,255,0.6)",padding:"calc(var(--sat) + 14px) 16px 12px",display:"flex",alignItems:"center",gap:12}},
       h("div",{style:{flex:1,position:"relative"}},
@@ -1192,9 +1192,9 @@ function AccessScreen({cat,myUid,users,onBack}){
     {v:"private",icon:"🔒",l:"Moi seul",desc:"Visible uniquement par toi"}
   ];
 
-  return h("div",{style:{paddingBottom:60,minHeight:"100vh"}},
+  return h("div",{style:{paddingBottom:"calc(90px + var(--sab))",minHeight:"100vh"}},
     // Header
-    h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"16px 16px 14px",display:"flex",alignItems:"center",gap:12,borderBottom:"1px solid rgba(255,255,255,0.6)"}},
+    h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"calc(52px + var(--sat)) 16px 14px",display:"flex",alignItems:"center",gap:12,borderBottom:"1px solid rgba(255,255,255,0.6)"}},
       h("button",{onClick:onBack,style:{width:36,height:36,borderRadius:10,background:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
         h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
       ),
@@ -1290,10 +1290,17 @@ function CatsScreen({myUid,cats,onBack,onEditAccess}){
   const emojis=["📌","🏠","✈️","🎯","💼","🌿","🎵","📸","🌅","🎉","❤️","⚽","🍕","🔒"];
   const add=()=>{if(!nm.trim())return;saveCat(myUid,"c"+Date.now(),{name:nm.trim(),emoji:emj,access:"public"});setNm("");};
 
-  return h("div",{style:{padding:"0 16px",paddingBottom:40}},
-    h("button",{onClick:onBack,style:{marginTop:16,background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0,display:"block"}},"← Retour"),
-    h("div",{style:{marginTop:14,fontSize:16,fontWeight:500}},"Mes catégories"),
-    h("p",{style:{fontSize:13,color:"var(--text2)",margin:"4px 0 16px"}},"Contrôle précisément qui voit chaque catégorie."),
+  return h("div",{style:{minHeight:"100vh"}},
+    h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.6)",padding:"calc(52px + var(--sat)) 16px 14px",display:"flex",alignItems:"center",gap:14}},
+      h("button",{onClick:onBack,style:{width:36,height:36,borderRadius:10,background:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+        h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+      ),
+      h("div",null,
+        h("div",{style:{fontSize:16,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}},"Mes catégories"),
+        h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1}},"Contrôle précisément qui voit chaque catégorie.")
+      )
+    ),
+    h("div",{style:{padding:"16px 16px",paddingBottom:"calc(90px + var(--sab))"}},
     h("div",{style:{display:"flex",flexDirection:"column",gap:10}},
       cats.map(cat=>{const l=aLbl(cat.access);
         return h("div",{key:cat.id,style:{background:"#fff",border:"0.5px solid var(--border)",borderRadius:"var(--rl)",padding:"14px 16px"}},
@@ -1316,12 +1323,13 @@ function CatsScreen({myUid,cats,onBack,onEditAccess}){
         h("button",{onClick:add,disabled:!nm.trim(),style:{padding:"8px 14px",fontSize:12,fontWeight:500,background:nm.trim()?"var(--text)":"var(--bg2)",color:nm.trim()?"#fff":"var(--text3)",border:"none",borderRadius:"var(--r)",cursor:nm.trim()?"pointer":"default"}},"Créer")
       )
     )
+    )
   );
 }
 
 // ── FOLLOWERS / FOLLOWING SCREEN ─────────────────────────
 function FollowListScreen({title,uids,users,myUid,following,onGoProfile,onBack}){
-  return h("div",{style:{minHeight:"100vh"}},
+  return h("div",{style:{minHeight:"100vh",paddingBottom:"calc(100px + var(--sab))"}},
     h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.6)",padding:"calc(52px + var(--sat)) 20px 16px",display:"flex",alignItems:"center",gap:14}},
       h("button",{onClick:onBack,style:{width:40,height:40,borderRadius:12,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 2px 8px rgba(31,38,135,0.06)"}},
         h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
@@ -1494,7 +1502,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
   const photosFiltered=photos.filter(p=>catFilter==="all"||p.cat===catFilter);
   const postsForMap=mine.filter(p=>p.lat&&p.lng&&(catFilter==="all"||p.cat===catFilter));
 
-  return h("div",{style:{paddingBottom:80,minHeight:"100vh"}},
+  return h("div",{style:{paddingBottom:"calc(80px + var(--sab))",minHeight:"100vh"}},
 
     // ① COVER — grande, absorbe la Dynamic Island
     h("div",{style:{position:"relative",height:`calc(175px + var(--sat))`,background:`linear-gradient(145deg,${coverColor} 0%,${coverColorDeep} 100%)`,overflow:"visible",flexShrink:0,zIndex:2}},
