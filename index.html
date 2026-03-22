@@ -780,23 +780,120 @@ const FORMATS=[{name:"Carré",w:1,h:1,label:"1:1"},{name:"Paysage",w:4,h:3,label
 function CropTool({src,onConfirm,onCancel}){
   const [fmt,setFmt]=useState(FORMATS[0]);
   const [pos,setPos]=useState({x:50,y:50});
-  const imgRef=useRef(null);const canvasRef=useRef(null);const dragRef=useRef(null);const ctnRef=useRef(null);
+  const [zoom,setZoom]=useState(1);
+  const [flipped,setFlipped]=useState(false);
+  const imgRef=useRef(null);const canvasRef=useRef(null);const dragRef=useRef(null);const ctnRef=useRef(null);const pinchRef=useRef(null);
   const ratio=fmt.w/fmt.h;
+
+  // Calcule le zoom minimum pour que l'image remplisse le cadre sans bord noir
+  const getMinZoom=useCallback(()=>{
+    const img=imgRef.current;if(!img||!img.naturalWidth)return 1;
+    const iR=img.naturalWidth/img.naturalHeight;
+    // Le cadre a un ratio = fmt.w/fmt.h. L'image avec object-fit:cover remplit le cadre à zoom=1
+    // En zoomant out (zoom<1), on verrait des bords noirs. Donc minZoom = 1
+    return 1;
+  },[fmt]);
+
+  const clampPos=(px,py,z)=>{
+    // À zoom > 1, l'image déborde du cadre. On peut pan dans l'excédent.
+    // objectPosition fonctionne en %. À zoom=1 cover, 0-100% couvrent tout l'axe excédentaire.
+    // À zoom > 1, les deux axes ont de l'excédent.
+    // On clamp pour ne pas montrer de bord noir.
+    return {x:Math.max(0,Math.min(100,px)),y:Math.max(0,Math.min(100,py))};
+  };
+
+  // Pan — mouse
   const handleMD=e=>{e.preventDefault();dragRef.current={sx:e.clientX,sy:e.clientY,px:pos.x,py:pos.y};};
-  const handleMM=useCallback(e=>{if(!dragRef.current||!ctnRef.current)return;const r=ctnRef.current.getBoundingClientRect();const dx=(e.clientX-dragRef.current.sx)/r.width*100;const dy=(e.clientY-dragRef.current.sy)/r.height*100;setPos({x:Math.max(0,Math.min(100,dragRef.current.px-dx)),y:Math.max(0,Math.min(100,dragRef.current.py-dy))});},[]);
+  const handleMM=useCallback(e=>{
+    if(!dragRef.current||!ctnRef.current)return;
+    const r=ctnRef.current.getBoundingClientRect();
+    const dx=(e.clientX-dragRef.current.sx)/r.width*100/zoom;
+    const dy=(e.clientY-dragRef.current.sy)/r.height*100/zoom;
+    const np=clampPos(dragRef.current.px-dx,dragRef.current.py-dy,zoom);
+    setPos(np);
+  },[zoom]);
   const handleMU=()=>{dragRef.current=null;};
   useEffect(()=>{window.addEventListener('mousemove',handleMM);window.addEventListener('mouseup',handleMU);return()=>{window.removeEventListener('mousemove',handleMM);window.removeEventListener('mouseup',handleMU);};},[handleMM]);
-  const confirm=()=>{const img=imgRef.current;if(!img)return;const nW=img.naturalWidth,nH=img.naturalHeight;const iR=nW/nH;let cW,cH;if(iR>ratio){cH=nH;cW=cH*ratio;}else{cW=nW;cH=cW/ratio;}const mX=nW-cW,mY=nH-cH;const cX=Math.max(0,Math.min(mX,(nW-cW)*pos.x/100));const cY=Math.max(0,Math.min(mY,(nH-cH)*pos.y/100));const oW=800,oH=Math.round(oW/ratio);const cv=canvasRef.current;cv.width=oW;cv.height=oH;cv.getContext('2d').drawImage(img,cX,cY,cW,cH,0,0,oW,oH);onConfirm(cv.toDataURL('image/jpeg',0.88));};
-  return h("div",null,
+
+  // Pan + Pinch — touch
+  const handleTS=e=>{
+    e.preventDefault();
+    if(e.touches.length===2){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      pinchRef.current={startDist:d,startZoom:zoom};
+      dragRef.current=null;
+    } else if(e.touches.length===1){
+      const t=e.touches[0];
+      dragRef.current={sx:t.clientX,sy:t.clientY,px:pos.x,py:pos.y};
+      pinchRef.current=null;
+    }
+  };
+  const handleTM=e=>{
+    e.preventDefault();
+    if(e.touches.length===2&&pinchRef.current){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      const newZoom=Math.max(1,Math.min(3,pinchRef.current.startZoom*(d/pinchRef.current.startDist)));
+      setZoom(newZoom);
+    } else if(e.touches.length===1&&dragRef.current&&ctnRef.current){
+      const t=e.touches[0];
+      const r=ctnRef.current.getBoundingClientRect();
+      const dx=(t.clientX-dragRef.current.sx)/r.width*100/zoom;
+      const dy=(t.clientY-dragRef.current.sy)/r.height*100/zoom;
+      const np=clampPos(dragRef.current.px-dx,dragRef.current.py-dy,zoom);
+      setPos(np);
+    }
+  };
+  const handleTE=()=>{dragRef.current=null;pinchRef.current=null;};
+
+  // Reset zoom/pos on format change
+  const changeFmt=f=>{setFmt(f);setPos({x:50,y:50});setZoom(1);};
+
+  const confirm=()=>{
+    const img=imgRef.current;if(!img)return;
+    const nW=img.naturalWidth,nH=img.naturalHeight;
+    const iR=nW/nH;
+    // Taille du crop visible (avant zoom) en pixels naturels
+    let cW,cH;
+    if(iR>ratio){cH=nH;cW=cH*ratio;}else{cW=nW;cH=cW/ratio;}
+    // Avec zoom, la zone visible est réduite
+    cW=cW/zoom;cH=cH/zoom;
+    const mX=nW-cW,mY=nH-cH;
+    const cX=Math.max(0,Math.min(mX,mX*pos.x/100));
+    const cY=Math.max(0,Math.min(mY,mY*pos.y/100));
+    const oW=800,oH=Math.round(oW/ratio);
+    const cv=canvasRef.current;cv.width=oW;cv.height=oH;
+    const ctx=cv.getContext('2d');
+    if(flipped){ctx.translate(oW,0);ctx.scale(-1,1);}
+    ctx.drawImage(img,cX,cY,cW,cH,0,0,oW,oH);
+    onConfirm(cv.toDataURL('image/jpeg',0.88));
+  };
+
+  return h("div",{style:{touchAction:"none"}},
     h("img",{ref:imgRef,src,style:{display:"none"},crossOrigin:"anonymous"}),
     h("canvas",{ref:canvasRef,style:{display:"none"}}),
     h("div",{style:{fontSize:13,fontWeight:500,marginBottom:10}},"Format"),
-    h("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},FORMATS.map(f=>h("button",{key:f.name,onClick:()=>{setFmt(f);setPos({x:50,y:50});},style:{padding:"6px 10px",fontSize:12,borderRadius:"var(--r)",cursor:"pointer",background:fmt.name===f.name?"var(--text)":"var(--bg2)",color:fmt.name===f.name?"#fff":"var(--text)",border:"0.5px solid var(--border)",fontWeight:fmt.name===f.name?500:400}},h("div",{style:{fontSize:11,fontWeight:500}},f.label),h("div",{style:{fontSize:10,opacity:0.7,marginTop:1}},f.name)))),
-    h("div",{ref:ctnRef,style:{width:"100%",aspectRatio:`${fmt.w}/${fmt.h}`,overflow:"hidden",borderRadius:"var(--r)",cursor:"grab",userSelect:"none",background:"#000"},onMouseDown:handleMD,onTouchStart:e=>{const t=e.touches[0];dragRef.current={sx:t.clientX,sy:t.clientY,px:pos.x,py:pos.y};},onTouchMove:e=>{if(!dragRef.current||!ctnRef.current)return;const t=e.touches[0];const r=ctnRef.current.getBoundingClientRect();const dx=(t.clientX-dragRef.current.sx)/r.width*100;const dy=(t.clientY-dragRef.current.sy)/r.height*100;setPos({x:Math.max(0,Math.min(100,dragRef.current.px-dx)),y:Math.max(0,Math.min(100,dragRef.current.py-dy))});},onTouchEnd:()=>{dragRef.current=null;}},
-      h("img",{src,draggable:false,style:{width:"100%",height:"100%",objectFit:"cover",display:"block",objectPosition:`${pos.x}% ${pos.y}%`,pointerEvents:"none"}})
+    h("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},FORMATS.map(f=>h("button",{key:f.name,onClick:()=>changeFmt(f),style:{padding:"6px 10px",fontSize:12,borderRadius:"var(--r)",cursor:"pointer",background:fmt.name===f.name?"var(--text)":"var(--bg2)",color:fmt.name===f.name?"#fff":"var(--text)",border:"0.5px solid var(--border)",fontWeight:fmt.name===f.name?500:400}},h("div",{style:{fontSize:11,fontWeight:500}},f.label),h("div",{style:{fontSize:10,opacity:0.7,marginTop:1}},f.name)))),
+    h("div",{ref:ctnRef,style:{width:"100%",aspectRatio:`${fmt.w}/${fmt.h}`,overflow:"hidden",borderRadius:"var(--r)",cursor:"grab",userSelect:"none",background:"#000",touchAction:"none"},
+      onMouseDown:handleMD,
+      onTouchStart:handleTS,
+      onTouchMove:handleTM,
+      onTouchEnd:handleTE},
+      h("img",{src,draggable:false,style:{width:`${100*zoom}%`,height:`${100*zoom}%`,objectFit:"cover",display:"block",objectPosition:`${pos.x}% ${pos.y}%`,pointerEvents:"none",transformOrigin:"center center",transform:flipped?"scaleX(-1)":"none"}})
     ),
-    h("div",{style:{fontSize:11,color:"var(--text3)",textAlign:"center",marginTop:6,marginBottom:12}},"Glisse pour repositionner"),
-    h("div",{style:{display:"flex",gap:8}},
+    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:16,marginTop:8}},
+      h("button",{onClick:()=>setFlipped(v=>!v),style:{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",fontSize:12,fontWeight:500,background:flipped?"var(--gbg)":"var(--bg2)",color:flipped?"var(--green)":"var(--text2)",border:flipped?"1px solid var(--green)":"0.5px solid var(--border)",borderRadius:20,cursor:"pointer"}},
+        h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("path",{d:"M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 3v18"})),
+        flipped?"Miroir ✓":"Miroir"
+      ),
+      h("span",{style:{fontSize:11,color:"var(--text3)"}},"Glisse · Pince pour zoomer")
+    ),
+    zoom>1&&h("div",{style:{display:"flex",alignItems:"center",gap:10,marginTop:8,padding:"0 4px"}},
+      h("span",{style:{fontSize:11,color:"var(--text3)"}},"−"),
+      h("input",{type:"range",min:100,max:300,value:Math.round(zoom*100),onChange:e=>setZoom(Number(e.target.value)/100),style:{flex:1,accentColor:"var(--green)"}}),
+      h("span",{style:{fontSize:11,color:"var(--text3)"}},"+"),
+      h("button",{onClick:()=>{setZoom(1);setPos({x:50,y:50});},style:{fontSize:11,color:"var(--green)",background:"transparent",border:"none",cursor:"pointer",fontWeight:600}},"Reset")
+    ),
+    h("div",{style:{display:"flex",gap:8,marginTop:12}},
       h("button",{onClick:onCancel,style:{flex:1,padding:"10px",fontSize:13,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler"),
       h("button",{onClick:confirm,style:{flex:2,padding:"10px",fontSize:13,fontWeight:500,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Appliquer")
     )
@@ -1042,7 +1139,7 @@ function PublishScreen({myUid,gps,cats,onBack}){
                 h("div",{style:{fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:3}},"Prendre une photo"),
                 h("div",{style:{fontSize:12,color:"var(--text3)"}},"Optionnel — tu peux aussi poster du texte")
               ),
-              h("input",{ref:fileRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+              h("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
             )
           ),
 
@@ -1118,7 +1215,7 @@ function SearchScreen({users,myUid,onGoProfile}){
         h("div",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}},
           h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text-light)",strokeWidth:2.5},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
         ),
-        h("input",{value:q,onChange:e=>setQ(e.target.value),placeholder:"Chercher un profil…",autoFocus:true,style:{width:"100%",padding:"13px 14px 13px 42px",fontSize:14,border:"1px solid rgba(255,255,255,0.8)",borderRadius:24,background:"rgba(255,255,255,0.75)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",color:"var(--zone-text)",boxSizing:"border-box",boxShadow:"0 8px 32px rgba(31,38,135,0.08)"}}),
+        h("input",{value:q,onChange:e=>setQ(e.target.value),placeholder:"Chercher un profil…",style:{width:"100%",padding:"13px 14px 13px 42px",fontSize:14,border:"1px solid rgba(255,255,255,0.8)",borderRadius:24,background:"rgba(255,255,255,0.75)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",color:"var(--zone-text)",boxSizing:"border-box",boxShadow:"0 8px 32px rgba(31,38,135,0.08)"}}),
         q&&h("button",{onClick:()=>setQ(""),style:{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer",width:22,height:22,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--zone-text-light)"}},"×")
       )
     ),
