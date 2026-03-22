@@ -843,10 +843,11 @@ function CropTool({src,onConfirm,onCancel}){
     if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
     const visW=covW/zoom,visH=covH/zoom;
     const maxX=nW-visW,maxY=nH-visH;
-    const nx=Math.max(0,Math.min(maxX,dragRef.current.ox-dx));
+    const fdx=flipped?-dx:dx;
+    const nx=Math.max(0,Math.min(maxX,dragRef.current.ox-fdx));
     const ny=Math.max(0,Math.min(maxY,dragRef.current.oy-dy));
     setOff({x:nx,y:ny});
-  },[zoom,ratio,screenToNat]);
+  },[zoom,ratio,screenToNat,flipped]);
   const handleMU=()=>{dragRef.current=null;};
   useEffect(()=>{window.addEventListener('mousemove',handleMM);window.addEventListener('mouseup',handleMU);return()=>{window.removeEventListener('mousemove',handleMM);window.removeEventListener('mouseup',handleMU);};},[handleMM]);
 
@@ -882,7 +883,8 @@ function CropTool({src,onConfirm,onCancel}){
       let covW,covH;if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
       const visW=covW/zoom,visH=covH/zoom;
       const maxX=nW-visW,maxY=nH-visH;
-      setOff({x:Math.max(0,Math.min(maxX,dragRef.current.ox-dx)),y:Math.max(0,Math.min(maxY,dragRef.current.oy-dy))});
+      const fdx=flipped?-dx:dx;
+      setOff({x:Math.max(0,Math.min(maxX,dragRef.current.ox-fdx)),y:Math.max(0,Math.min(maxY,dragRef.current.oy-dy))});
     }
   };
   const handleTE=()=>{dragRef.current=null;pinchRef.current=null;};
