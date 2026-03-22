@@ -1749,14 +1749,7 @@ function App(){
   };
 
   // ── Phases pré-app ──
-  if(phase==="loading") return h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"linear-gradient(135deg,#0a1628 0%,#0d2137 30%,#0f1a2e 60%,#130d28 100%)",position:"relative",overflow:"hidden"}},
-    h(Aurora),
-    h("div",{style:{textAlign:"center",position:"relative",zIndex:2}},
-      h("div",{style:{width:64,height:64,borderRadius:20,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1.5px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",animation:"pulseGlow 2s ease-in-out infinite"}},
-        h("span",{className:"shiny-text",style:{fontSize:28,fontWeight:700}},"Z")),
-      h("div",{style:{fontSize:13,color:"rgba(255,255,255,0.6)"}},"Chargement…")
-    )
-  );
+  if(phase==="loading") return null; // couvert par SplashScreenPortal
   if(phase==="welcome") return h(Welcome,{onStart:()=>setPhase("google")});
   if(phase==="google") return h(GoogleSignIn,{onSign:signIn,loading:signLoading,error:signError});
   if(phase==="setup") return h(ProfileSetup,{uid:authUser.uid,onDone:()=>setPhase("gps")});
@@ -2106,6 +2099,121 @@ function App(){
   );
 }
 
+// ── SPLASH SCREEN — animation de chargement ──────────────
+function SplashScreenPortal(){
+  const [visible,setVisible]=useState(true);
+  const [barW,setBarW]=useState(0);
+  const containerRef=useRef(null);
+  const lORef=useRef(null);
+  const oWrapRef=useRef(null);
+  const startedRef=useRef(false);
+  const minDoneRef=useRef(false);
+  const authDoneRef=useRef(false);
+
+  useEffect(()=>{
+    // Barre de progression
+    let p=0;
+    const iv=setInterval(()=>{
+      p=Math.min(100,p+(100/2500*60)*(0.5+Math.random()*0.9));
+      setBarW(p);
+      if(p>=100)clearInterval(iv);
+    },60);
+    // Durée minimum 2.5s
+    const t=setTimeout(()=>{minDoneRef.current=true;tryStart();},2500);
+    // Écoute Firebase Auth (résout quand l'état est connu)
+    const unsub=auth.onAuthStateChanged(()=>{authDoneRef.current=true;tryStart();});
+    return()=>{clearInterval(iv);clearTimeout(t);unsub();};
+  },[]);
+
+  const tryStart=()=>{
+    if(startedRef.current||!minDoneRef.current||!authDoneRef.current)return;
+    startedRef.current=true;
+    runAnim();
+  };
+
+  const runAnim=async()=>{
+    const c=containerRef.current;
+    const lO=lORef.current;
+    const oWrap=oWrapRef.current;
+    if(!c||!lO||!oWrap)return;
+
+    const lZ=c.querySelector('#splZ');
+    const lN=c.querySelector('#splN');
+    const lE=c.querySelector('#splE');
+    const tag=c.querySelector('#splTag');
+    const logo=c.querySelector('#splLogo');
+    const barWrap=c.querySelector('#splBarWrap');
+    const oEl=oWrap.firstChild;
+
+    // Mesure position réelle du O dans le container
+    const oRect=lO.getBoundingClientRect();
+    const cRect=c.getBoundingClientRect();
+    const oCX=oRect.left+oRect.width/2-cRect.left;
+    const oCY=oRect.top+oRect.height/2-cRect.top;
+    const cCX=cRect.width/2;
+    const cCY=cRect.height/2;
+
+    // Positionne le O flottant exactement sur le O du mot
+    oWrap.style.cssText=`position:absolute;left:${oCX-oRect.width/2}px;top:${oCY-oRect.height/2}px;opacity:1;z-index:10;pointer-events:none;`;
+    lO.style.visibility='hidden';
+
+    // ── Phase 1 : O s'illumine, Z N E s'effacent ──
+    oEl.style.transition='color .4s,text-shadow .4s';
+    oEl.style.color='#1DBEAA';
+    oEl.style.textShadow='0 0 32px rgba(29,190,170,1),0 0 80px rgba(29,190,170,0.5)';
+    if(tag){tag.style.transition='opacity .3s';tag.style.opacity='0';}
+    if(logo){logo.style.transition='opacity .3s';logo.style.opacity='0';}
+    if(barWrap){barWrap.style.transition='opacity .3s';barWrap.style.opacity='0';}
+    const fade=(el,dx)=>{if(!el)return;el.style.transition='opacity .3s,transform .3s';el.style.opacity='0';el.style.transform=`translateX(${dx}px)`;};
+    setTimeout(()=>fade(lZ,-14),0);
+    setTimeout(()=>fade(lN,14),70);
+    setTimeout(()=>fade(lE,22),140);
+
+    await new Promise(r=>setTimeout(r,560));
+
+    // ── Phase 2 : O glisse vers le centre exact ──
+    oWrap.style.transition='transform .55s cubic-bezier(.25,.46,.45,.94)';
+    oWrap.style.transform=`translate(${cCX-oCX}px,${cCY-oCY}px)`;
+
+    await new Promise(r=>setTimeout(r,600));
+
+    // ── Phase 3 : O grossit → plongeon + overlay disparaît ──
+    oEl.style.transition='transform 1s cubic-bezier(.3,0,.5,1),opacity .4s .45s';
+    oEl.style.transform='scale(26)';
+    oEl.style.opacity='0';
+    c.style.transition='opacity .55s .3s';
+    c.style.opacity='0';
+
+    await new Promise(r=>setTimeout(r,1100));
+    setVisible(false);
+  };
+
+  if(!visible)return null;
+
+  const LS={fontSize:82,fontWeight:900,color:'#fff',fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',lineHeight:1,display:'inline-block'};
+
+  return h("div",{ref:containerRef,style:{position:'fixed',top:0,bottom:0,left:0,right:0,maxWidth:460,margin:'0 auto',zIndex:9999,background:'#090f1e',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',overflow:'hidden'}},
+    h(Aurora),
+    h("div",{id:'splLogo',style:{width:62,height:62,borderRadius:18,background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.18)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:18,animation:'pulseGlow 2.5s ease-in-out infinite',position:'relative',zIndex:2}},
+      h("span",{className:"shiny-text",style:{fontSize:26,fontWeight:900}},"Z")
+    ),
+    h("div",{style:{display:'flex',alignItems:'center',letterSpacing:'5px',position:'relative',zIndex:2}},
+      h("span",{id:'splZ',style:LS},"Z"),
+      h("span",{ref:lORef,style:LS},"O"),
+      h("span",{id:'splN',style:LS},"N"),
+      h("span",{id:'splE',style:LS},"E")
+    ),
+    h("div",{id:'splTag',style:{fontSize:11,color:'rgba(255,255,255,0.38)',letterSpacing:'3px',marginTop:14,marginBottom:28,position:'relative',zIndex:2}},"Le monde autour de toi"),
+    h("div",{id:'splBarWrap',style:{width:90,height:2,background:'rgba(255,255,255,0.1)',borderRadius:1,overflow:'hidden',position:'relative',zIndex:2}},
+      h("div",{style:{height:'100%',background:'linear-gradient(90deg,#1DBEAA,#9B6FFF)',borderRadius:1,width:barW+'%',transition:'width .08s linear'}})
+    ),
+    // O flottant pour l'animation
+    h("div",{ref:oWrapRef,style:{position:'absolute',top:0,left:0,opacity:0,pointerEvents:'none'}},
+      h("span",{style:{...LS,display:'block',transformOrigin:'center center'}},"O")
+    )
+  );
+}
+
 // ── BANNIÈRE INSTALLATION iOS PWA ────────────────────────
 function IOSInstallBanner(){
   const [show,setShow]=useState(false);
@@ -2177,6 +2285,11 @@ function IOSInstallBanner(){
 }
 
 ReactDOM.render(h(App),document.getElementById("root"));
+
+// Splash screen — overlay fixe au-dessus de tout
+const splashRoot=document.createElement('div');
+document.body.appendChild(splashRoot);
+ReactDOM.render(h(SplashScreenPortal),splashRoot);
 
 // Injecte la bannière dans un second root
 const bannerRoot=document.createElement('div');
