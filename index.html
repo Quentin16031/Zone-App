@@ -805,18 +805,6 @@ function CropTool({src,onConfirm,onCancel}){
     return {x:(nW-visW)/2, y:(nH-visH)/2};
   },[ratio]);
 
-  // Clamp offsets pour ne jamais montrer de bord noir
-  const clamp=(ox,oy,z)=>{
-    const img=imgRef.current;if(!img||!img.naturalWidth)return{x:0,y:0};
-    const nW=img.naturalWidth,nH=img.naturalHeight;
-    const iR=nW/nH;
-    let covW,covH;
-    if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
-    const visW=covW/z,visH=covH/z;
-    const maxX=nW-visW,maxY=nH-visH;
-    return{x:Math.max(0,Math.min(maxX,ox)),y:Math.max(0,Math.min(maxY,oy))};
-  };
-
   // Init quand image charge
   useEffect(()=>{
     const img=imgRef.current;if(!img)return;
@@ -838,8 +826,6 @@ function CropTool({src,onConfirm,onCancel}){
     const iR=nW/nH;
     let covW,covH;
     if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
-    // Le cadre écran a la taille r.width × r.height
-    // Il affiche covW/zoom × covH/zoom pixels naturels
     const natPerPxX=(covW/zoom)/r.width;
     const natPerPxY=(covH/zoom)/r.height;
     return{dx:dxScreen*natPerPxX, dy:dyScreen*natPerPxY};
@@ -850,8 +836,17 @@ function CropTool({src,onConfirm,onCancel}){
   const handleMM=useCallback(e=>{
     if(!dragRef.current)return;
     const {dx,dy}=screenToNat(e.clientX-dragRef.current.sx,e.clientY-dragRef.current.sy);
-    setOff(clamp(dragRef.current.ox-dx,dragRef.current.oy-dy,zoom));
-  },[zoom,screenToNat]);
+    const img=imgRef.current;if(!img||!img.naturalWidth)return;
+    const nW=img.naturalWidth,nH=img.naturalHeight;
+    const iR=nW/nH;
+    let covW,covH;
+    if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+    const visW=covW/zoom,visH=covH/zoom;
+    const maxX=nW-visW,maxY=nH-visH;
+    const nx=Math.max(0,Math.min(maxX,dragRef.current.ox-dx));
+    const ny=Math.max(0,Math.min(maxY,dragRef.current.oy-dy));
+    setOff({x:nx,y:ny});
+  },[zoom,ratio,screenToNat]);
   const handleMU=()=>{dragRef.current=null;};
   useEffect(()=>{window.addEventListener('mousemove',handleMM);window.addEventListener('mouseup',handleMU);return()=>{window.removeEventListener('mousemove',handleMM);window.removeEventListener('mouseup',handleMU);};},[handleMM]);
 
@@ -873,10 +868,21 @@ function CropTool({src,onConfirm,onCancel}){
       const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
       const nz=Math.max(1,Math.min(3,pinchRef.current.startZoom*(d/pinchRef.current.startDist)));
       setZoom(nz);
-      setOff(clamp(pinchRef.current.ox,pinchRef.current.oy,nz));
+      // Reclamp avec nouveau zoom
+      const img=imgRef.current;if(img&&img.naturalWidth){
+        const nW=img.naturalWidth,nH=img.naturalHeight,iR=nW/nH;
+        let covW,covH;if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+        const visW=covW/nz,visH=covH/nz;
+        setOff(prev=>({x:Math.max(0,Math.min(nW-visW,prev.x)),y:Math.max(0,Math.min(nH-visH,prev.y))}));
+      }
     }else if(e.touches.length===1&&dragRef.current){
       const {dx,dy}=screenToNat(e.touches[0].clientX-dragRef.current.sx,e.touches[0].clientY-dragRef.current.sy);
-      setOff(clamp(dragRef.current.ox-dx,dragRef.current.oy-dy,zoom));
+      const img=imgRef.current;if(!img||!img.naturalWidth)return;
+      const nW=img.naturalWidth,nH=img.naturalHeight,iR=nW/nH;
+      let covW,covH;if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+      const visW=covW/zoom,visH=covH/zoom;
+      const maxX=nW-visW,maxY=nH-visH;
+      setOff({x:Math.max(0,Math.min(maxX,dragRef.current.ox-dx)),y:Math.max(0,Math.min(maxY,dragRef.current.oy-dy))});
     }
   };
   const handleTE=()=>{dragRef.current=null;pinchRef.current=null;};
@@ -939,7 +945,15 @@ function CropTool({src,onConfirm,onCancel}){
     ),
     zoom>1&&h("div",{style:{display:"flex",alignItems:"center",gap:10,marginTop:8,padding:"0 4px"}},
       h("span",{style:{fontSize:11,color:"var(--text3)"}},"−"),
-      h("input",{type:"range",min:100,max:300,value:Math.round(zoom*100),onChange:e=>{const nz=Number(e.target.value)/100;setZoom(nz);setOff(prev=>clamp(prev.x,prev.y,nz));},style:{flex:1,accentColor:"var(--green)"}}),
+      h("input",{type:"range",min:100,max:300,value:Math.round(zoom*100),onChange:e=>{
+        const nz=Number(e.target.value)/100;setZoom(nz);
+        const img=imgRef.current;if(img&&img.naturalWidth){
+          const nW=img.naturalWidth,nH=img.naturalHeight,iR=nW/nH;
+          let covW,covH;if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+          const visW=covW/nz,visH=covH/nz;
+          setOff(prev=>({x:Math.max(0,Math.min(nW-visW,prev.x)),y:Math.max(0,Math.min(nH-visH,prev.y))}));
+        }
+      },style:{flex:1,accentColor:"var(--green)"}}),
       h("span",{style:{fontSize:11,color:"var(--text3)"}},"+"),
       h("button",{onClick:()=>{setZoom(1);setOff(recenter(1));},style:{fontSize:11,color:"var(--green)",background:"transparent",border:"none",cursor:"pointer",fontWeight:600}},"Reset")
     ),
