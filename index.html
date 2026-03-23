@@ -259,21 +259,39 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     });
 
     // Grouper par proximité pixel (greedy clustering)
+    // D'abord on groupe TOUS les posts (y compris le sélectionné) pour connaître les membres complets
     const used=new Set();
-    const clusters=[];
+    const rawGroups=[];
     withPx.forEach((p,i)=>{
       if(used.has(i))return;
-      // Le post sélectionné n'est jamais clusterisé
-      if(p.id===selectedPostId){used.add(i);clusters.push({posts:[p],center:[p.lat,p.lng],single:true});return;}
       const group=[p];used.add(i);
       withPx.forEach((q,j)=>{
-        if(used.has(j)||q.id===selectedPostId)return;
+        if(used.has(j))return;
         const dx=p.px-q.px,dy=p.py-q.py;
         if(Math.sqrt(dx*dx+dy*dy)<CLUSTER_PX){group.push(q);used.add(j);}
       });
-      const cLat=group.reduce((s,g)=>s+g.lat,0)/group.length;
-      const cLng=group.reduce((s,g)=>s+g.lng,0)/group.length;
-      clusters.push({posts:group,center:[cLat,cLng],single:group.length===1});
+      rawGroups.push(group);
+    });
+
+    // Séparer : le post sélectionné est toujours extrait visuellement
+    const clusters=[];
+    rawGroups.forEach(group=>{
+      const allMembers=group.map(p=>p); // tous les posts du groupe (pour le cycle)
+      const display=group.filter(p=>p.id!==selectedPostId);
+      const hasSelected=group.some(p=>p.id===selectedPostId);
+      // Le post sélectionné est rendu individuellement
+      if(hasSelected){
+        const sp=group.find(p=>p.id===selectedPostId);
+        clusters.push({posts:[sp],center:[sp.lat,sp.lng],single:true,allMembers:[sp]});
+      }
+      if(display.length===0)return;
+      if(display.length===1){
+        clusters.push({posts:display,center:[display[0].lat,display[0].lng],single:true,allMembers});
+      }else{
+        const cLat=display.reduce((s,g)=>s+g.lat,0)/display.length;
+        const cLng=display.reduce((s,g)=>s+g.lng,0)/display.length;
+        clusters.push({posts:display,center:[cLat,cLng],single:false,allMembers});
+      }
     });
 
     const dimmed=!!selectedPostId;
@@ -372,10 +390,21 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
         const totalW=avatarsW+48;
         const icon=L.divIcon({className:'',html:clusterHtml,iconSize:[totalW,sz+5],iconAnchor:[totalW/2,sz+5]});
         const marker=L.marker(cl.center,{icon,zIndexOffset:200}).addTo(map);
-        // Tap cluster → zoom pour séparer
+        // Tap cluster → zoom pour séparer, ou cycle si on ne peut plus zoomer
+        const allMembers=cl.allMembers;
         marker.on('click',()=>{
-          const bounds=L.latLngBounds(cl.posts.map(p=>[p.lat,p.lng]));
-          map.fitBounds(bounds,{padding:[80,80],maxZoom:17,animate:true});
+          const curZoom=map.getZoom();
+          const bounds=L.latLngBounds(allMembers.map(p=>[p.lat,p.lng]));
+          const targetZoom=map.getBoundsZoom(bounds,false,[80,80]);
+          const canSeparate=targetZoom>curZoom+0.5&&curZoom<17;
+          if(canSeparate){
+            map.fitBounds(bounds,{padding:[80,80],maxZoom:17,animate:true});
+          }else{
+            // Cycle : trouver le post actuellement sélectionné dans la liste complète
+            const currentIdx=allMembers.findIndex(p=>p.id===selectedPostId);
+            const nextIdx=(currentIdx+1)%allMembers.length;
+            if(onSelectPost)onSelectPost(allMembers[nextIdx]);
+          }
         });
         markersRef.current["cl_"+ci]=marker;
       }
