@@ -2075,19 +2075,21 @@ function App(){
     });
   },[authUser]);
 
-  // Streak rétroactive — calculée une seule fois si l'utilisateur n'a pas de streak enregistrée
+  // Streak rétroactive — calculée une seule fois, prend le MAX entre existant et rétroactif
   const streakMigrated=useRef(false);
   useEffect(()=>{
     if(!authUser||streakMigrated.current||posts.length===0)return;
+    streakMigrated.current=true;
+    const myPosts=posts.filter(p=>p.uid===authUser.uid);
+    if(myPosts.length===0)return;
+    const retro=computeRetroactiveStreak(myPosts);
+    if(retro.count<=1)return; // Pas la peine pour 0 ou 1
     const sRef=db.ref(`users/${authUser.uid}/streak`);
     sRef.once('value').then(snap=>{
-      if(streakMigrated.current)return;
-      streakMigrated.current=true;
-      if(snap.exists()&&snap.val()?.lastDay)return; // déjà une streak enregistrée
-      const myPosts=posts.filter(p=>p.uid===authUser.uid);
-      if(myPosts.length===0)return;
-      const retro=computeRetroactiveStreak(myPosts);
-      if(retro.count>0)sRef.set(retro);
+      const existing=snap.val()||{count:0,lastDay:""};
+      if(retro.count>existing.count){
+        sRef.set(retro);
+      }
     });
   },[authUser,posts]);
 
