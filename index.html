@@ -206,6 +206,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
   const circlesRef=useRef({});
   const myMarkerRef=useRef(null);
   const centeredRef=useRef(false);
+  const renderKeyRef=useRef(0);
 
   // Init carte
   useEffect(()=>{
@@ -237,57 +238,70 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
   },[gps?.lat,gps?.lng]);
 
-  // Marqueurs posts — Concept B enhanced : pills Zenly + zones sur les autres
-  useEffect(()=>{
-    if(!leafRef.current)return;
-    Object.values(markersRef.current).forEach(m=>m.remove());
-    Object.values(circlesRef.current).forEach(arr=>(Array.isArray(arr)?arr:[arr]).forEach(c=>c.remove()));
+  // ── Clustering + Markers ──
+  const renderMarkers=useCallback(()=>{
+    const map=leafRef.current;if(!map)return;
+
+    // Cleanup
+    Object.values(markersRef.current).forEach(m=>{if(m&&m.remove)m.remove();});
+    Object.values(circlesRef.current).forEach(arr=>{(Array.isArray(arr)?arr:[arr]).forEach(c=>{if(c&&c.remove)c.remove();});});
     markersRef.current={};circlesRef.current={};
 
-    posts.forEach(p=>{
-      if(!p.lat||!p.lng)return;
-      const inZone=canSee(p,myUid,gps);
-      const isSelected=p.id===selectedPostId;
-      const isOwn=p.uid===myUid;
-      const dimmed=selectedPostId&&!isSelected;
-      const alpha=dimmed?0.25:1;
-      const userColor=uidHue(p.uid);
-      const u=users[p.uid];
-      const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
-      const distTxt=dist!==null?fmtD(dist):"";
+    const CLUSTER_PX=65; // distance en pixels pour regrouper
+    const otherPosts=posts.filter(p=>p.lat&&p.lng&&p.uid!==myUid);
+    const ownPosts=posts.filter(p=>p.lat&&p.lng&&p.uid===myUid);
 
-      // ── Zone : cercle visible pour les posts des AUTRES (toujours), pas pour mes posts ──
-      const circles=[];
-      if(!isOwn){
+    // ── Clustering des posts des autres (jamais mes posts) ──
+    // Convertir lat/lng → pixel écran
+    const withPx=otherPosts.map(p=>{
+      const pt=map.latLngToContainerPoint([p.lat,p.lng]);
+      return{...p,px:pt.x,py:pt.y};
+    });
+
+    // Grouper par proximité pixel (greedy clustering)
+    const used=new Set();
+    const clusters=[];
+    withPx.forEach((p,i)=>{
+      if(used.has(i))return;
+      // Le post sélectionné n'est jamais clusterisé
+      if(p.id===selectedPostId){used.add(i);clusters.push({posts:[p],center:[p.lat,p.lng],single:true});return;}
+      const group=[p];used.add(i);
+      withPx.forEach((q,j)=>{
+        if(used.has(j)||q.id===selectedPostId)return;
+        const dx=p.px-q.px,dy=p.py-q.py;
+        if(Math.sqrt(dx*dx+dy*dy)<CLUSTER_PX){group.push(q);used.add(j);}
+      });
+      const cLat=group.reduce((s,g)=>s+g.lat,0)/group.length;
+      const cLng=group.reduce((s,g)=>s+g.lng,0)/group.length;
+      clusters.push({posts:group,center:[cLat,cLng],single:group.length===1});
+    });
+
+    const dimmed=!!selectedPostId;
+
+    // ── Render clusters ──
+    clusters.forEach((cl,ci)=>{
+      if(cl.single){
+        // Post individuel (ou sélectionné) → pill normale + zone
+        const p=cl.posts[0];
+        const isSelected=p.id===selectedPostId;
+        const alpha=dimmed&&!isSelected?0.25:1;
+        const userColor=uidHue(p.uid);
+        const u=users[p.uid];
+        const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
+        const distTxt=dist!==null?fmtD(dist):"";
+
+        // Zone cercle
         const c1=L.circle([p.lat,p.lng],{
-          radius:p.radius,
-          color:userColor,
+          radius:p.radius,color:userColor,
           weight:isSelected?1.8:1,
-          opacity:dimmed?0.1:(isSelected?0.45:0.25),
+          opacity:dimmed&&!isSelected?0.1:(isSelected?0.45:0.25),
           fillColor:userColor,
-          fillOpacity:dimmed?0.02:(isSelected?0.1:0.05),
+          fillOpacity:dimmed&&!isSelected?0.02:(isSelected?0.1:0.05),
           interactive:false
-        }).addTo(leafRef.current);
-        circles.push(c1);
-      }
-      circlesRef.current[p.id]=circles;
+        }).addTo(map);
+        circlesRef.current["z_"+p.id]=[c1];
 
-      let markerHtml;
-
-      if(isOwn){
-        // ── Mes posts : simple dot teal ──
-        const sz=isSelected?14:8;
-        const ring=isSelected?24:16;
-        markerHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2px solid #fff;box-shadow:0 1px 4px rgba(29,158,117,0.3)"></div>
-          ${isSelected?`<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#fff;pointer-events:none"></div>`:''}
-        </div>`;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:30}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
-      } else {
-        // ── Posts des autres : pill photo/initiales + pseudo + distance ──
+        // Pill
         const pseudo=(u?.pseudo||"?").slice(0,8);
         const hasPhoto=!!u?.photo;
         const pillH=isSelected?38:32;
@@ -295,13 +309,10 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
         const fontSize=isSelected?11:10;
         const distFontSize=isSelected?9:8;
         const padR=isSelected?12:10;
-
-        // Avatar : photo (img) ou initiales
         const avatarHtml=hasPhoto
           ?`<img src="${u.photo}" style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;object-fit:cover;display:block;flex-shrink:0;border:1.5px solid ${userColor}44" />`
           :`<div style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;background:${userColor};display:flex;align-items:center;justify-content:center;font-size:${isSelected?10:8}px;font-weight:700;color:#fff;flex-shrink:0">${(u?.pseudo||"?").slice(0,2).toUpperCase()}</div>`;
-
-        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
+        const mHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
           <div style="background:#fff;border-radius:${pillH/2}px;height:${pillH}px;padding:${(pillH-avatarSz)/2}px ${padR}px ${(pillH-avatarSz)/2}px ${(pillH-avatarSz)/2}px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.12);border:1.5px solid ${isSelected?userColor:userColor+'66'}">
             ${avatarHtml}
             <div style="display:flex;flex-direction:column;line-height:1.2">
@@ -313,13 +324,91 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
         </div>`;
         const anchorH=pillH+5;
         const pillW=isSelected?120:100;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[pillW,anchorH],iconAnchor:[pillW/2,anchorH]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
+        const icon=L.divIcon({className:'',html:mHtml,iconSize:[pillW,anchorH],iconAnchor:[pillW/2,anchorH]});
+        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(map);
         marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
+        markersRef.current["p_"+p.id]=marker;
+      } else {
+        // Cluster de plusieurs posts → cercle englobant + avatars empilés + badge count
+        const alpha=dimmed?0.25:1;
+
+        // Cercle englobant pointillé (max radius du cluster)
+        const maxRadius=Math.max(...cl.posts.map(p=>p.radius));
+        const englobingCircle=L.circle(cl.center,{
+          radius:maxRadius,
+          color:"rgba(29,190,170,0.3)",
+          weight:1,opacity:alpha*0.6,
+          fillColor:"rgba(29,190,170,0.05)",fillOpacity:alpha*0.5,
+          dashArray:"5 4",interactive:false
+        }).addTo(map);
+        circlesRef.current["cl_"+ci]=[englobingCircle];
+
+        // Marker cluster — avatars empilés + compteur
+        const uniqueUsers=[...new Map(cl.posts.map(p=>[p.uid,p])).values()].slice(0,3);
+        const count=cl.posts.length;
+        const sz=48;
+
+        let avatarsHtml='';
+        uniqueUsers.forEach((p,i)=>{
+          const u=users[p.uid];
+          const c=uidHue(p.uid);
+          const offset=i*14;
+          if(u?.photo){
+            avatarsHtml+=`<img src="${u.photo}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;position:absolute;left:${offset}px;top:50%;transform:translateY(-50%);border:2px solid #fff;z-index:${3-i}" />`;
+          }else{
+            avatarsHtml+=`<div style="width:22px;height:22px;border-radius:50%;background:${c};position:absolute;left:${offset}px;top:50%;transform:translateY(-50%);border:2px solid #fff;z-index:${3-i};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff">${(u?.pseudo||"?").slice(0,2).toUpperCase()}</div>`;
+          }
+        });
+        const avatarsW=uniqueUsers.length*14+10;
+
+        const clusterHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
+          <div style="position:relative;background:#fff;border-radius:${sz/2}px;height:${sz}px;padding:0 12px 0 8px;display:flex;align-items:center;box-shadow:0 2px 12px rgba(0,0,0,0.12);border:1.5px solid rgba(29,190,170,0.3)">
+            <div style="position:relative;width:${avatarsW}px;height:22px;flex-shrink:0">${avatarsHtml}</div>
+            <div style="background:#1DBEAA;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;white-space:nowrap">${count}</div>
+          </div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #fff;margin-top:-1px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.08))"></div>
+        </div>`;
+
+        const totalW=avatarsW+48;
+        const icon=L.divIcon({className:'',html:clusterHtml,iconSize:[totalW,sz+5],iconAnchor:[totalW/2,sz+5]});
+        const marker=L.marker(cl.center,{icon,zIndexOffset:200}).addTo(map);
+        // Tap cluster → zoom pour séparer
+        marker.on('click',()=>{
+          const bounds=L.latLngBounds(cl.posts.map(p=>[p.lat,p.lng]));
+          map.fitBounds(bounds,{padding:[80,80],maxZoom:17,animate:true});
+        });
+        markersRef.current["cl_"+ci]=marker;
       }
     });
-  },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng]);
+
+    // ── Mes posts : toujours individuels, jamais clusterisés ──
+    ownPosts.forEach(p=>{
+      const isSelected=p.id===selectedPostId;
+      const alpha=dimmed&&!isSelected?0.25:1;
+      const sz=isSelected?14:8;
+      const ring=isSelected?24:16;
+      const mHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2px solid #fff;box-shadow:0 1px 4px rgba(29,158,117,0.3)"></div>
+        ${isSelected?`<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#fff;pointer-events:none"></div>`:''}
+      </div>`;
+      const icon=L.divIcon({className:'',html:mHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
+      const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:30}).addTo(map);
+      marker.on('click',()=>onSelectPost&&onSelectPost(p));
+      markersRef.current["own_"+p.id]=marker;
+    });
+  },[posts,selectedPostId,gps?.lat,gps?.lng,users,myUid]);
+
+  // Recalculer les clusters sur zoom/pan
+  useEffect(()=>{
+    const map=leafRef.current;if(!map)return;
+    const onMove=()=>{renderKeyRef.current++;renderMarkers();};
+    map.on('zoomend',onMove);
+    map.on('moveend',onMove);
+    return()=>{map.off('zoomend',onMove);map.off('moveend',onMove);};
+  },[renderMarkers]);
+
+  // Render initial + quand les données changent
+  useEffect(()=>{renderMarkers();},[renderMarkers]);
 
   return h("div",{ref:mapRef,style:{width:"100%",height:"100%"}});
 }
