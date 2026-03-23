@@ -329,6 +329,14 @@ const pushPost=(uid,data)=>db.ref('posts').push({...data,uid,ts:Date.now()});
 const patchPost=(id,d)=>db.ref('posts/'+id).update(d);
 const rmPost=id=>db.ref('posts/'+id).remove();
 const toggleLike=(id,uid,has)=>db.ref(`posts/${id}/likes/${uid}`).set(has?null:true);
+const setReaction=(postId,uid,type)=>db.ref(`posts/${postId}/likes/${uid}`).set(type||null);
+const REACTIONS=[
+  {key:"heart",em:"❤️",bg:"#FEE2E2",fg:"#991B1B"},
+  {key:"fire",em:"🔥",bg:"#FFF7ED",fg:"#9A3412"},
+  {key:"laugh",em:"😂",bg:"#FEF9C3",fg:"#854D0E"},
+  {key:"wow",em:"😮",bg:"#E0E7FF",fg:"#3730A3"},
+  {key:"clap",em:"👏",bg:"#ECFDF5",fg:"#065F46"}
+];
 const addComment=(postId,uid,text)=>db.ref(`comments/${postId}`).push({uid,text,ts:Date.now()});
 const rmComment=(postId,cid)=>db.ref(`comments/${postId}/${cid}`).remove();
 const saveProfile=(uid,d)=>db.ref('users/'+uid).update(d);
@@ -615,8 +623,12 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete}){
   const [commentCount,setCommentCount]=useState(0);
   const [newComment,setNewComment]=useState("");
   const [sendingComment,setSendingComment]=useState(false);
-  const liked=!!(post.likes&&post.likes[myUid]);
-  const likeCount=post.likes?Object.keys(post.likes).filter(k=>post.likes[k]).length:0;
+  // Reactions — backward compat: true → "heart"
+  const likes=post.likes||{};
+  const myReaction=likes[myUid]?(likes[myUid]===true?"heart":likes[myUid]):null;
+  const reactionCounts={};
+  Object.values(likes).forEach(v=>{if(!v)return;const k=v===true?"heart":v;reactionCounts[k]=(reactionCounts[k]||0)+1;});
+  const totalReactions=Object.values(reactionCounts).reduce((a,b)=>a+b,0);
 
   // Compteur permanent — léger, juste les clés
   useEffect(()=>{
@@ -709,11 +721,23 @@ function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete}){
       !ed&&!del&&!changeCat&&(vis
         ?h("div",null,
             post.text&&h("p",{style:{fontSize:14,margin:"0 0 12px",lineHeight:1.65}},post.text),
-            h("div",{style:{display:"flex",alignItems:"center",gap:16,borderTop:"0.5px solid var(--border)",paddingTop:10}},
-              h(Ripple,{onClick:e=>{e.stopPropagation();toggleLike(post.id,myUid,liked);},style:{background:"transparent",border:"none",cursor:"pointer",padding:"4px 8px",borderRadius:10,display:"flex",alignItems:"center",gap:5,color:liked?"var(--red)":"var(--text3)"}},
-                h("span",{style:{fontSize:17}},liked?"❤️":"🤍"),
-                h("span",{style:{fontSize:13,fontWeight:liked?600:400}},likeCount||"")
-              ),
+            h("div",{style:{display:"flex",alignItems:"center",gap:2,borderTop:"0.5px solid var(--border)",paddingTop:10,flexWrap:"wrap"}},
+              REACTIONS.map(r=>{
+                const isOn=myReaction===r.key;
+                const cnt=reactionCounts[r.key]||0;
+                const show=isOn||cnt>0;
+                return h("button",{key:r.key,onClick:e=>{e.stopPropagation();setReaction(post.id,myUid,isOn?null:r.key);},style:{
+                  border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:3,
+                  padding:show?"5px 8px":"5px 6px",borderRadius:16,fontSize:13,
+                  background:isOn?r.bg:"transparent",color:isOn?r.fg:"var(--text3)",
+                  fontWeight:isOn?600:400,opacity:show?1:0.45,
+                  transition:"all .15s",flexShrink:0
+                }},
+                  h("span",{style:{fontSize:15,display:"inline-block",transform:isOn?"scale(1.15)":"scale(1)",transition:"transform .2s"}},r.em),
+                  cnt>0&&h("span",{style:{fontSize:12,minWidth:6}},cnt)
+                );
+              }),
+              h("div",{style:{flex:1}}),
               h("button",{onClick:e=>{e.stopPropagation();setShowComments(v=>!v);},style:{background:"transparent",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:5,color:showComments?"var(--green)":"var(--text3)"}},
                 h("svg",{width:17,height:17,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"})),
                 h("span",{style:{fontSize:13,fontWeight:showComments?600:400}},commentCount||"")
@@ -1584,6 +1608,37 @@ async function updateStreak(myUid){
   return newCount;
 }
 
+// Calcule la streak rétroactive à partir des posts existants
+function computeRetroactiveStreak(userPosts){
+  if(!userPosts||userPosts.length===0)return{count:0,lastDay:""};
+  // Jours uniques où l'utilisateur a posté
+  const postedDays=new Set(userPosts.map(p=>postDayLocal(p.ts)));
+  // Remonter depuis aujourd'hui
+  let count=0;
+  const d=new Date();
+  for(let i=0;i<365;i++){
+    const dayStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if(postedDays.has(dayStr)){count++;d.setDate(d.getDate()-1);}
+    else break;
+  }
+  if(count===0){
+    // Pas posté aujourd'hui, essayer depuis hier
+    const y=new Date();y.setDate(y.getDate()-1);
+    for(let i=0;i<365;i++){
+      const dayStr=`${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
+      if(postedDays.has(dayStr)){count++;y.setDate(y.getDate()-1);}
+      else break;
+    }
+    if(count>0){
+      // La streak est basée sur hier comme dernier jour
+      const lastD=new Date();lastD.setDate(lastD.getDate()-1);
+      return{count,lastDay:`${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`};
+    }
+    return{count:0,lastDay:""};
+  }
+  return{count,lastDay:localToday()};
+}
+
 // Composant célébration streak — overlay plein écran 3 sec
 function StreakCelebration({count,onDone}){
   const [visible,setVisible]=useState(true);
@@ -2019,6 +2074,22 @@ function App(){
       cRef.update(updates);
     });
   },[authUser]);
+
+  // Streak rétroactive — calculée une seule fois si l'utilisateur n'a pas de streak enregistrée
+  const streakMigrated=useRef(false);
+  useEffect(()=>{
+    if(!authUser||streakMigrated.current||posts.length===0)return;
+    const sRef=db.ref(`users/${authUser.uid}/streak`);
+    sRef.once('value').then(snap=>{
+      if(streakMigrated.current)return;
+      streakMigrated.current=true;
+      if(snap.exists()&&snap.val()?.lastDay)return; // déjà une streak enregistrée
+      const myPosts=posts.filter(p=>p.uid===authUser.uid);
+      if(myPosts.length===0)return;
+      const retro=computeRetroactiveStreak(myPosts);
+      if(retro.count>0)sRef.set(retro);
+    });
+  },[authUser,posts]);
 
   const [gpsError,setGpsError]=useState(null); // null | "denied" | "timeout" | "unavailable"
 
