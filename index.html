@@ -310,7 +310,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
         </div>`;
         const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
         const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:30}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
+        marker.on('click',(e)=>{L.DomEvent.stopPropagation(e);onSelectPost&&onSelectPost(p);});
         markersRef.current[p.id]=marker;
       } else {
         // ── Posts des autres : pill photo/initiales + pseudo + distance ──
@@ -341,7 +341,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
         const pillW=isSelected?120:100;
         const icon=L.divIcon({className:'',html:markerHtml,iconSize:[pillW,anchorH],iconAnchor:[pillW/2,anchorH]});
         const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
+        marker.on('click',(e)=>{L.DomEvent.stopPropagation(e);onSelectPost&&onSelectPost(p);});
         markersRef.current[p.id]=marker;
       }
     });
