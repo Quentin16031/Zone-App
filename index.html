@@ -270,28 +270,30 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     Object.values(circlesRef.current).forEach(arr=>(Array.isArray(arr)?arr:[arr]).forEach(c=>c.remove()));
     markersRef.current={};circlesRef.current={};
 
-    // ── Préparer les defs SVG une seule fois pour ce batch ──
-    const _ensureDefs=()=>{
-      const svg=leafRef.current.getPanes()?.overlayPane?.querySelector('svg');
-      if(!svg)return null;
-      let defs=svg.querySelector('defs');
-      if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild);}
-      return defs;
-    };
-    const _applyPattern=(circle,uid)=>{
-      const s=userStyle(uid,users);
+    // ── Injecter les patterns dans un SVG global du body (résolution url(#id) cross-document) ──
+    let globalSvg=document.getElementById('zone-pattern-defs');
+    if(!globalSvg){
+      globalSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      globalSvg.setAttribute('id','zone-pattern-defs');
+      globalSvg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+      globalSvg.style.cssText='position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
+      document.body.appendChild(globalSvg);
+    }
+    // Vider les anciens patterns
+    while(globalSvg.firstChild)globalSvg.removeChild(globalSvg.firstChild);
+    // Injecter un pattern par uid unique (autres utilisateurs seulement)
+    const done=new Set();
+    posts.forEach(p=>{
+      if(p.uid===myUid||done.has(p.uid))return;
+      done.add(p.uid);
+      const s=userStyle(p.uid,users);
       if(s.pattern==='solid')return;
-      const{pid,def}=genSvgPattern(uid,s.color,s.pattern,s.emoji);
-      const defs=_ensureDefs();
-      if(!defs)return;
-      if(!defs.querySelector('#'+pid))defs.insertAdjacentHTML('beforeend',def);
-      const el=circle.getElement();
-      if(el){el.style.fill=`url(#${pid})`;el.style.fillOpacity='0.5';}
-    };
+      const{def}=genSvgPattern(p.uid,s.color,s.pattern,s.emoji);
+      globalSvg.insertAdjacentHTML('beforeend',def);
+    });
 
     posts.forEach(p=>{
       if(!p.lat||!p.lng)return;
-      const inZone=canSee(p,myUid,gps);
       const isSelected=p.id===selectedPostId;
       const isOwn=p.uid===myUid;
       const dimmed=selectedPostId&&!isSelected;
@@ -301,19 +303,21 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
       const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
       const distTxt=dist!==null?fmtD(dist):"";
 
-      // ── Zone : toujours sur les autres ; sur mes posts seulement si sélectionné ──
+      // ── Zone ──
       const circles=[];
       if(!isOwn||(isOwn&&isSelected)){
+        const s=isOwn?null:userStyle(p.uid,users);
+        const usePat=!isOwn&&s&&s.pattern!=='solid';
+        const{pid}=usePat?genSvgPattern(p.uid,s.color,s.pattern,s.emoji):{pid:null};
         const c1=L.circle([p.lat,p.lng],{
           radius:p.radius,
           color:userColor,
           weight:isSelected?1.8:1,
           opacity:isOwn?(isSelected?0.5:0):dimmed?0.1:(isSelected?0.45:0.25),
-          fillColor:userColor,
+          fillColor:usePat?`url(#${pid})`:userColor,
           fillOpacity:isOwn?(isSelected?0.08:0):dimmed?0.02:(isSelected?0.1:0.05),
           interactive:false
         }).addTo(leafRef.current);
-        if(!isOwn)_applyPattern(c1,p.uid);
         circles.push(c1);
       }
       circlesRef.current[p.id]=circles;
