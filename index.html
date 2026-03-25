@@ -144,6 +144,32 @@ function uidHue(uid){
   return hs[n%hs.length];
 }
 
+// ── Style personnalisé utilisateur (couleur, motif, emoji) ──
+function userStyle(uid,users){
+  const u=users?.[uid]||{};
+  return{color:u.userColor||uidHue(uid),pattern:u.userPattern||'solid',emoji:u.userEmoji||'🌟'};
+}
+function extractFirstEmoji(str){
+  try{const m=str.match(/\p{Extended_Pictographic}(\u200D\p{Extended_Pictographic})*/gu);return m?m[0]:null;}catch(e){return null;}
+}
+function genSvgPattern(uid,color,pattern,emoji){
+  const pid='zp-'+uid.replace(/[^a-zA-Z0-9]/g,'').slice(0,12);
+  const sz=pattern==='emoji'?26:pattern==='stars'?18:pattern==='crosses'?14:10;
+  const fop=pattern==='solid'?'0.1':'0.04';
+  let inner='';
+  switch(pattern){
+    case'dots':   inner=`<circle cx="5" cy="5" r="2.2" fill="${color}" opacity=".55"/>`;break;
+    case'hatch':  inner=`<path d="M-2,10L10,-2M-2,2L2,-2M8,10L10,8" stroke="${color}" stroke-width="1.3" opacity=".5"/>`;break;
+    case'grid':   inner=`<path d="M5,0V10M0,5H10" stroke="${color}" stroke-width=".9" opacity=".45"/>`;break;
+    case'dashes': inner=`<line x1="0" y1="5" x2="4" y2="5" stroke="${color}" stroke-width="1.6" opacity=".5" stroke-linecap="round"/>`;break;
+    case'stars':  inner=`<text x="9" y="13.5" text-anchor="middle" font-size="11" fill="${color}" opacity=".55">★</text>`;break;
+    case'crosses':inner=`<path d="M7,3V11M3,7H11" stroke="${color}" stroke-width="1.3" opacity=".5" stroke-linecap="round" fill="none"/>`;break;
+    case'waves':  inner=`<path d="M0,5Q2.5,2 5,5Q7.5,8 10,5" stroke="${color}" fill="none" stroke-width="1.1" opacity=".5"/>`;break;
+    case'emoji':  inner=`<text x="${sz/2}" y="${sz*0.74}" text-anchor="middle" font-size="${Math.round(sz*0.7)}" opacity="0.5" font-family="Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif">${emoji||'🌟'}</text>`;break;
+  }
+  return{pid,def:`<pattern id="${pid}" x="0" y="0" width="${sz}" height="${sz}" patternUnits="userSpaceOnUse"><rect width="${sz}" height="${sz}" fill="${color}" opacity="${fop}"/>${inner}</pattern>`};
+}
+
 // Couleur d'un post : catégorie si définie, sinon couleur de l'auteur
 // cats = tableau des catégories de l'auteur du post
 function postColor(post,authorCats){
@@ -206,6 +232,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
   const circlesRef=useRef({});
   const myMarkerRef=useRef(null);
   const centeredRef=useRef(false);
+  const renderKeyRef=useRef(0);
 
   // Init carte
   useEffect(()=>{
@@ -237,57 +264,70 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
   },[gps?.lat,gps?.lng]);
 
-  // Marqueurs posts — Concept B enhanced : pills Zenly + zones sur les autres
-  useEffect(()=>{
-    if(!leafRef.current)return;
-    Object.values(markersRef.current).forEach(m=>m.remove());
-    Object.values(circlesRef.current).forEach(arr=>(Array.isArray(arr)?arr:[arr]).forEach(c=>c.remove()));
+  // ── Clustering + Markers ──
+  const renderMarkers=useCallback(()=>{
+    const map=leafRef.current;if(!map)return;
+
+    // Cleanup
+    Object.values(markersRef.current).forEach(m=>{if(m&&m.remove)m.remove();});
+    Object.values(circlesRef.current).forEach(arr=>{(Array.isArray(arr)?arr:[arr]).forEach(c=>{if(c&&c.remove)c.remove();});});
     markersRef.current={};circlesRef.current={};
 
-    posts.forEach(p=>{
-      if(!p.lat||!p.lng)return;
-      const inZone=canSee(p,myUid,gps);
-      const isSelected=p.id===selectedPostId;
-      const isOwn=p.uid===myUid;
-      const dimmed=selectedPostId&&!isSelected;
-      const alpha=dimmed?0.25:1;
-      const userColor=uidHue(p.uid);
-      const u=users[p.uid];
-      const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
-      const distTxt=dist!==null?fmtD(dist):"";
+    const CLUSTER_PX=65; // distance en pixels pour regrouper
+    const otherPosts=posts.filter(p=>p.lat&&p.lng&&p.uid!==myUid);
+    const ownPosts=posts.filter(p=>p.lat&&p.lng&&p.uid===myUid);
 
-      // ── Zone : cercle visible pour les posts des AUTRES (toujours), pas pour mes posts ──
-      const circles=[];
-      if(!isOwn){
+    // ── Clustering des posts des autres (jamais mes posts) ──
+    // Convertir lat/lng → pixel écran
+    const withPx=otherPosts.map(p=>{
+      const pt=map.latLngToContainerPoint([p.lat,p.lng]);
+      return{...p,px:pt.x,py:pt.y};
+    });
+
+    // Grouper par proximité pixel (greedy clustering)
+    const used=new Set();
+    const clusters=[];
+    withPx.forEach((p,i)=>{
+      if(used.has(i))return;
+      // Le post sélectionné n'est jamais clusterisé
+      if(p.id===selectedPostId){used.add(i);clusters.push({posts:[p],center:[p.lat,p.lng],single:true});return;}
+      const group=[p];used.add(i);
+      withPx.forEach((q,j)=>{
+        if(used.has(j)||q.id===selectedPostId)return;
+        const dx=p.px-q.px,dy=p.py-q.py;
+        if(Math.sqrt(dx*dx+dy*dy)<CLUSTER_PX){group.push(q);used.add(j);}
+      });
+      const cLat=group.reduce((s,g)=>s+g.lat,0)/group.length;
+      const cLng=group.reduce((s,g)=>s+g.lng,0)/group.length;
+      clusters.push({posts:group,center:[cLat,cLng],single:group.length===1});
+    });
+
+    const dimmed=!!selectedPostId;
+
+    // ── Render clusters ──
+    clusters.forEach((cl,ci)=>{
+      if(cl.single){
+        // Post individuel (ou sélectionné) → pill normale + zone
+        const p=cl.posts[0];
+        const isSelected=p.id===selectedPostId;
+        const alpha=dimmed&&!isSelected?0.25:1;
+        const userColor=userStyle(p.uid,users).color;
+        const u=users[p.uid];
+        const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
+        const distTxt=dist!==null?fmtD(dist):"";
+
+        // Zone cercle
         const c1=L.circle([p.lat,p.lng],{
-          radius:p.radius,
-          color:userColor,
+          radius:p.radius,color:userColor,
           weight:isSelected?1.8:1,
-          opacity:dimmed?0.1:(isSelected?0.45:0.25),
+          opacity:dimmed&&!isSelected?0.1:(isSelected?0.45:0.25),
           fillColor:userColor,
-          fillOpacity:dimmed?0.02:(isSelected?0.1:0.05),
+          fillOpacity:dimmed&&!isSelected?0.02:(isSelected?0.1:0.05),
           interactive:false
-        }).addTo(leafRef.current);
-        circles.push(c1);
-      }
-      circlesRef.current[p.id]=circles;
+        }).addTo(map);
+        circlesRef.current["z_"+p.id]=[c1];
 
-      let markerHtml;
-
-      if(isOwn){
-        // ── Mes posts : simple dot teal ──
-        const sz=isSelected?14:8;
-        const ring=isSelected?24:16;
-        markerHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2px solid #fff;box-shadow:0 1px 4px rgba(29,158,117,0.3)"></div>
-          ${isSelected?`<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#fff;pointer-events:none"></div>`:''}
-        </div>`;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:30}).addTo(leafRef.current);
-        marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
-      } else {
-        // ── Posts des autres : pill photo/initiales + pseudo + distance ──
+        // Pill
         const pseudo=(u?.pseudo||"?").slice(0,8);
         const hasPhoto=!!u?.photo;
         const pillH=isSelected?38:32;
@@ -295,13 +335,10 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
         const fontSize=isSelected?11:10;
         const distFontSize=isSelected?9:8;
         const padR=isSelected?12:10;
-
-        // Avatar : photo (img) ou initiales
         const avatarHtml=hasPhoto
           ?`<img src="${u.photo}" style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;object-fit:cover;display:block;flex-shrink:0;border:1.5px solid ${userColor}44" />`
           :`<div style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;background:${userColor};display:flex;align-items:center;justify-content:center;font-size:${isSelected?10:8}px;font-weight:700;color:#fff;flex-shrink:0">${(u?.pseudo||"?").slice(0,2).toUpperCase()}</div>`;
-
-        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
+        const mHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
           <div style="background:#fff;border-radius:${pillH/2}px;height:${pillH}px;padding:${(pillH-avatarSz)/2}px ${padR}px ${(pillH-avatarSz)/2}px ${(pillH-avatarSz)/2}px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.12);border:1.5px solid ${isSelected?userColor:userColor+'66'}">
             ${avatarHtml}
             <div style="display:flex;flex-direction:column;line-height:1.2">
@@ -313,13 +350,125 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
         </div>`;
         const anchorH=pillH+5;
         const pillW=isSelected?120:100;
-        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[pillW,anchorH],iconAnchor:[pillW/2,anchorH]});
-        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
+        const icon=L.divIcon({className:'',html:mHtml,iconSize:[pillW,anchorH],iconAnchor:[pillW/2,anchorH]});
+        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(map);
         marker.on('click',()=>onSelectPost&&onSelectPost(p));
-        markersRef.current[p.id]=marker;
+        markersRef.current["p_"+p.id]=marker;
+      } else {
+        // Cluster de plusieurs posts → cercle englobant + avatars empilés + badge count
+        const alpha=dimmed?0.25:1;
+
+        // Cercle englobant pointillé (max radius du cluster)
+        const maxRadius=Math.max(...cl.posts.map(p=>p.radius));
+        const englobingCircle=L.circle(cl.center,{
+          radius:maxRadius,
+          color:"rgba(29,190,170,0.3)",
+          weight:1,opacity:alpha*0.6,
+          fillColor:"rgba(29,190,170,0.05)",fillOpacity:alpha*0.5,
+          dashArray:"5 4",interactive:false
+        }).addTo(map);
+        circlesRef.current["cl_"+ci]=[englobingCircle];
+
+        // Marker cluster — avatars empilés + compteur
+        const uniqueUsers=[...new Map(cl.posts.map(p=>[p.uid,p])).values()].slice(0,3);
+        const count=cl.posts.length;
+        const sz=48;
+
+        let avatarsHtml='';
+        uniqueUsers.forEach((p,i)=>{
+          const u=users[p.uid];
+          const c=userStyle(p.uid,users).color;
+          const offset=i*14;
+          if(u?.photo){
+            avatarsHtml+=`<img src="${u.photo}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;position:absolute;left:${offset}px;top:50%;transform:translateY(-50%);border:2px solid #fff;z-index:${3-i}" />`;
+          }else{
+            avatarsHtml+=`<div style="width:22px;height:22px;border-radius:50%;background:${c};position:absolute;left:${offset}px;top:50%;transform:translateY(-50%);border:2px solid #fff;z-index:${3-i};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff">${(u?.pseudo||"?").slice(0,2).toUpperCase()}</div>`;
+          }
+        });
+        const avatarsW=uniqueUsers.length*14+10;
+
+        const clusterHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
+          <div style="position:relative;background:#fff;border-radius:${sz/2}px;height:${sz}px;padding:0 12px 0 8px;display:flex;align-items:center;box-shadow:0 2px 12px rgba(0,0,0,0.12);border:1.5px solid rgba(29,190,170,0.3)">
+            <div style="position:relative;width:${avatarsW}px;height:22px;flex-shrink:0">${avatarsHtml}</div>
+            <div style="background:#1DBEAA;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;white-space:nowrap">${count}</div>
+          </div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #fff;margin-top:-1px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.08))"></div>
+        </div>`;
+
+        const totalW=avatarsW+48;
+        const icon=L.divIcon({className:'',html:clusterHtml,iconSize:[totalW,sz+5],iconAnchor:[totalW/2,sz+5]});
+        const marker=L.marker(cl.center,{icon,zIndexOffset:200}).addTo(map);
+        // Tap cluster → zoom pour séparer
+        marker.on('click',()=>{
+          const bounds=L.latLngBounds(cl.posts.map(p=>[p.lat,p.lng]));
+          map.fitBounds(bounds,{padding:[80,80],maxZoom:17,animate:true});
+        });
+        markersRef.current["cl_"+ci]=marker;
       }
     });
-  },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng]);
+
+    // ── Mes posts : toujours individuels, jamais clusterisés ──
+    ownPosts.forEach(p=>{
+      const isSelected=p.id===selectedPostId;
+      const alpha=dimmed&&!isSelected?0.25:1;
+      const sz=isSelected?14:8;
+      const ring=isSelected?24:16;
+      const mHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2px solid #fff;box-shadow:0 1px 4px rgba(29,158,117,0.3)"></div>
+        ${isSelected?`<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#fff;pointer-events:none"></div>`:''}
+      </div>`;
+      const icon=L.divIcon({className:'',html:mHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
+      const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:30}).addTo(map);
+      marker.on('click',()=>onSelectPost&&onSelectPost(p));
+      markersRef.current["own_"+p.id]=marker;
+    });
+  },[posts,selectedPostId,gps?.lat,gps?.lng,users,myUid]);
+
+  // Recalculer les clusters sur zoom/pan
+  useEffect(()=>{
+    const map=leafRef.current;if(!map)return;
+    const onMove=()=>{renderKeyRef.current++;renderMarkers();};
+    map.on('zoomend',onMove);
+    map.on('moveend',onMove);
+    return()=>{map.off('zoomend',onMove);map.off('moveend',onMove);};
+  },[renderMarkers]);
+
+  // Render initial + quand les données changent
+  useEffect(()=>{renderMarkers();},[renderMarkers]);
+
+  // ── Injection patterns SVG dans le calque Leaflet ──
+  useEffect(()=>{
+    const inject=()=>{
+      const map=leafRef.current;if(!map)return;
+      const svg=map.getPanes()?.overlayPane?.querySelector('svg');
+      if(!svg)return;
+      let defs=svg.querySelector('defs');
+      if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild);}
+      Array.from(defs.querySelectorAll('[id^="zp-"]')).forEach(el=>el.remove());
+      const done=new Set();
+      posts.forEach(p=>{
+        if(p.uid===myUid||done.has(p.uid))return;
+        done.add(p.uid);
+        const s=userStyle(p.uid,users);
+        if(s.pattern==='solid')return;
+        const{def}=genSvgPattern(p.uid,s.color,s.pattern,s.emoji);
+        defs.insertAdjacentHTML('beforeend',def);
+      });
+      // Appliquer fill url() sur chaque cercle de zone
+      Object.entries(circlesRef.current).forEach(([key,circs])=>{
+        if(!key.startsWith('z_'))return;
+        const postId=key.slice(2);
+        const p2=posts.find(x=>x.id===postId);
+        if(!p2||p2.uid===myUid)return;
+        const s=userStyle(p2.uid,users);
+        if(s.pattern==='solid')return;
+        const{pid}=genSvgPattern(p2.uid,s.color,s.pattern,s.emoji);
+        (Array.isArray(circs)?circs:[circs]).forEach(c=>{const el=c.getElement?.();if(el)el.setAttribute('fill',`url(#${pid})`);});
+      });
+    };
+    const t=setTimeout(inject,80);
+    return()=>clearTimeout(t);
+  },[posts,users,myUid]);
 
   return h("div",{ref:mapRef,style:{width:"100%",height:"100%"}});
 }
@@ -608,7 +757,7 @@ function GpsScreen({onDone}){
 // ── POST CARD ─────────────────────────────────────────────
 function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete}){
   const u=users[post.uid];
-  const hue=uidHue(post.uid);
+  const hue=userStyle(post.uid,users).color;
   const d=gps?haversine(gps.lat,gps.lng,post.lat,post.lng):Infinity;
   const vis=canSee(post,myUid,gps);
   const own=post.uid===myUid;
@@ -1451,7 +1600,7 @@ function AccessScreen({cat,myUid,users,onBack}){
             followers.some(f=>f.isFollower)&&h("div",{style:{fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}},"Abonnés"),
             followers.map(({uid,u,isFollower})=>{
               const chk=customSel.includes(uid);
-              const hue=uidHue(uid);
+              const hue=userStyle(uid,users).color;
               return h("div",{key:uid,onClick:()=>tog(uid),style:{
                 display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
                 borderRadius:14,cursor:"pointer",
@@ -1549,7 +1698,7 @@ function FollowListScreen({title,uids,users,myUid,following,onGoProfile,onBack})
       :h("div",{style:{padding:"12px 16px",display:"flex",flexDirection:"column",gap:10}},
           uids.map(uid=>{
             const u=users[uid];if(!u)return null;
-            const hue=uidHue(uid);
+            const hue=userStyle(uid,users).color;
             const isF=!!(following&&following[uid]);
             return h("div",{key:uid,style:{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"rgba(255,255,255,0.75)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.8)",borderRadius:20,cursor:"pointer",boxShadow:"0 4px 20px rgba(31,38,135,0.06)"},onClick:()=>onGoProfile(uid)},
               h(Av,{photo:u.photo,pseudo:u.pseudo||"?",sz:46,hue}),
@@ -1729,7 +1878,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
   const u=users[uid]||{};
   const isSelf=uid===myUid;
   const me=users[myUid]||{};
-  const hue=uidHue(uid);
+  const hue=userStyle(uid,users).color;
   const isF=!!(me.following&&me.following[uid]);
   const isB=!!(me.blocked&&me.blocked[uid]);
   const [opt,setOpt]=useState(false);
@@ -1740,6 +1889,10 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
   const [eVille,setEVille]=useState("");
   const [ePhoto,setEPhoto]=useState(null);
   const fileRef=useRef(null);
+  const emojiInputRef=useRef(null);
+  const [eColor,setEColor]=useState('');
+  const [ePattern,setEPattern]=useState('');
+  const [eEmoji,setEEmoji]=useState('');
   // ── SPLIT VIEW — hooks AVANT tout return conditionnel (Rules of Hooks)
   const [selectedPostId,setSelectedPostId]=useState(null);
   const profileMapRef=useRef(null);
@@ -1751,7 +1904,7 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
 
   const handleFile=async f=>{if(!f||!f.type.startsWith("image/"))return;setEPhoto(await compressImg(f));};
   const saveEdit=async()=>{
-    await saveProfile(myUid,{pseudo:(ePseudo||u.pseudo||"").trim(),bio:(eBio||"").trim(),ville:(eVille||"").trim(),photo:ePhoto||u.photo||null});
+    await saveProfile(myUid,{pseudo:(ePseudo||u.pseudo||"").trim(),bio:(eBio||"").trim(),ville:(eVille||"").trim(),photo:ePhoto||u.photo||null,userColor:eColor||u.userColor||uidHue(myUid),userPattern:ePattern||u.userPattern||'solid',userEmoji:eEmoji||u.userEmoji||'🌟'});
     setEditMode(false);setEPhoto(null);
   };
 
@@ -1774,6 +1927,54 @@ function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfil
       h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Pseudo"),h("input",{value:ePseudo||u.pseudo||"",onChange:e=>setEPseudo(e.target.value),maxLength:24,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}})),
       h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Bio"),h("textarea",{value:eBio||u.bio||"",onChange:e=>setEBio(e.target.value),maxLength:80,rows:2,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)",resize:"none"}})),
       h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Ville"),h("input",{value:eVille||u.ville||"",onChange:e=>setEVille(e.target.value),maxLength:40,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}))
+    ),
+    // ── Mon style sur la carte ──
+    h("div",{style:{marginTop:22,paddingTop:18,borderTop:"0.5px solid var(--border)"}},
+      h("div",{style:{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:14}},"🗺️ Mon style sur la carte"),
+      // Couleur
+      h("div",{style:{marginBottom:14}},
+        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:8}},"Couleur"),
+        h("div",{style:{display:"flex",gap:7,flexWrap:"wrap"}},
+          ["#1DBEAA","#00D4FF","#9B6FFF","#FF6B9D","#F59E0B","#EF4444","#10B981","#3B82F6","#FF8C42","#06B6D4","#84CC16","#EC4899"].map(c=>{
+            const active=eColor||u.userColor||uidHue(myUid);
+            return h("div",{key:c,onClick:()=>setEColor(c),style:{width:28,height:28,borderRadius:9,background:c,cursor:"pointer",flexShrink:0,border:`2.5px solid ${active===c?"#0D1117":"transparent"}`,transition:"transform .1s,border-color .1s"}});
+          })
+        )
+      ),
+      // Motif
+      h("div",{style:{marginBottom:8}},
+        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:8}},"Motif"),
+        h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          [{id:"solid",lbl:"Uni"},{id:"dots",lbl:"Points"},{id:"hatch",lbl:"Hachures"},{id:"grid",lbl:"Grille"},{id:"dashes",lbl:"Tirets"},{id:"stars",lbl:"Étoiles"},{id:"crosses",lbl:"Croix"},{id:"waves",lbl:"Vagues"},{id:"emoji",lbl:"Emoji"}].map(p=>{
+            const curPat=ePattern||u.userPattern||'solid';
+            const col=eColor||u.userColor||uidHue(myUid);
+            const isOn=curPat===p.id;
+            return h("button",{key:p.id,onClick:()=>setEPattern(p.id),style:{padding:"5px 10px",fontSize:11,borderRadius:10,border:`1.5px solid ${isOn?col:"var(--border2)"}`,background:isOn?col+"22":"var(--bg2)",color:isOn?col:"var(--text2)",cursor:"pointer",fontWeight:isOn?600:400,transition:"all .12s"}},p.lbl);
+          })
+        )
+      ),
+      // Picker emoji (visible seulement si motif = emoji)
+      (ePattern||u.userPattern||'solid')==='emoji'&&h("div",{style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"var(--bg2)",borderRadius:"var(--r)",marginTop:8}},
+        h("div",{style:{fontSize:34,fontFamily:"Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif",width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:"#fff",borderRadius:12,border:`2px solid ${(eColor||u.userColor||uidHue(myUid))+"33"}`}},eEmoji||u.userEmoji||'🌟'),
+        h("div",{style:{flex:1}},
+          h("p",{style:{fontSize:12,color:"var(--text2)",marginBottom:8,lineHeight:1.5}},"Bascule sur le clavier emoji via la touche 🌐 puis choisis ton emoji."),
+          h("button",{
+            onClick:()=>{
+              if(!emojiInputRef.current)return;
+              emojiInputRef.current.style.pointerEvents="auto";
+              emojiInputRef.current.focus();
+              setTimeout(()=>{if(emojiInputRef.current)emojiInputRef.current.style.pointerEvents="none";},5000);
+            },
+            style:{padding:"6px 14px",fontSize:12,borderRadius:10,border:"0.5px solid var(--border2)",background:"#fff",color:"var(--text)",cursor:"pointer"}
+          },"✏️ Choisir un emoji"),
+          h("input",{
+            ref:emojiInputRef,
+            type:"text",maxLength:10,autoComplete:"off",autoCorrect:"off",spellCheck:false,
+            style:{position:"fixed",bottom:"50%",left:"50%",width:2,height:2,opacity:0.01,zIndex:-1,pointerEvents:"none",border:"none",outline:"none"},
+            onInput:e=>{const m=extractFirstEmoji(e.target.value);if(m)setEEmoji(m);e.target.value="";}
+          })
+        )
+      )
     ),
     h("button",{onClick:()=>{auth.signOut();},style:{marginTop:28,width:"100%",padding:11,fontSize:13,background:"transparent",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--red)"}},"Se déconnecter")
     )
@@ -2318,7 +2519,7 @@ function App(){
           "Personnes",
           h("button",{onClick:()=>setHiddenAuthors(new Set()),style:{fontSize:11,background:"transparent",border:"none",cursor:"pointer",color:"var(--green)",padding:0}},"Tous")
         ),
-        authorIds.map(uid=>{const u=users[uid];const shown=!hiddenAuthors.has(uid);const hue=uidHue(uid);
+        authorIds.map(uid=>{const u=users[uid];const shown=!hiddenAuthors.has(uid);const hue=userStyle(uid,users).color;
           return h("div",{key:uid,onClick:()=>setHiddenAuthors(s=>{const n=new Set(s);n.has(uid)?n.delete(uid):n.add(uid);return n;}),style:{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer"}},
             h("div",{style:{width:10,height:10,borderRadius:"50%",flexShrink:0,background:shown?hue:"var(--border2)",border:`1.5px solid ${hue}`}}),
             h("span",{style:{fontSize:12,flex:1,color:shown?"var(--text)":"var(--text3)"}},u?.pseudo||uid.slice(0,8)),
@@ -2350,7 +2551,7 @@ function App(){
         },
           peekAvatars.length>0&&h("div",{style:{display:"flex",flexShrink:0}},
             peekAvatars.map((uid,i)=>{
-              const u=users[uid];const hue=uidHue(uid);
+              const u=users[uid];const hue=userStyle(uid,users).color;
               return u?.photo
                 ?h("img",{key:uid,src:u.photo,style:{width:22,height:22,borderRadius:"50%",objectFit:"cover",border:"2px solid #fff",marginLeft:i>0?-7:0,position:"relative",zIndex:4-i}})
                 :h("div",{key:uid,style:{width:22,height:22,borderRadius:"50%",background:hue,border:"2px solid #fff",marginLeft:i>0?-7:0,position:"relative",zIndex:4-i,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,fontWeight:700,color:"#fff"}},(u?.pseudo||"?").slice(0,2).toUpperCase());
@@ -2384,7 +2585,7 @@ function App(){
                   const u=users[p.uid];
                   const d=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):0;
                   const ul=canSee(p,myUid,gps);
-                  const hue=uidHue(p.uid);
+                  const hue=userStyle(p.uid,users).color;
                   const isOwn=p.uid===myUid;
                   return h("div",{key:p.id,onClick:()=>handleSelectPost(p),style:{display:"flex",gap:10,padding:"8px 16px",cursor:"pointer",alignItems:"center",borderBottom:"0.5px solid rgba(0,0,0,0.04)",animation:"listSlideIn 0.35s cubic-bezier(.25,.46,.45,.94) both",animationDelay:`${idx*45}ms`}},
                     u?.photo
