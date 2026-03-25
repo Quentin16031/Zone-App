@@ -282,16 +282,16 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
       const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
       const distTxt=dist!==null?fmtD(dist):"";
 
-      // ── Zone : cercle visible pour les posts des AUTRES (toujours), pas pour mes posts ──
+      // ── Zone : toujours sur les autres ; sur mes posts seulement si sélectionné ──
       const circles=[];
-      if(!isOwn){
+      if(!isOwn||(isOwn&&isSelected)){
         const c1=L.circle([p.lat,p.lng],{
           radius:p.radius,
           color:userColor,
           weight:isSelected?1.8:1,
-          opacity:dimmed?0.1:(isSelected?0.45:0.25),
+          opacity:isOwn?(isSelected?0.5:0):dimmed?0.1:(isSelected?0.45:0.25),
           fillColor:userColor,
-          fillOpacity:dimmed?0.02:(isSelected?0.1:0.05),
+          fillOpacity:isOwn?(isSelected?0.08:0):dimmed?0.02:(isSelected?0.1:0.05),
           interactive:false
         }).addTo(leafRef.current);
         circles.push(c1);
