@@ -270,6 +270,25 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
     Object.values(circlesRef.current).forEach(arr=>(Array.isArray(arr)?arr:[arr]).forEach(c=>c.remove()));
     markersRef.current={};circlesRef.current={};
 
+    // ── Préparer les defs SVG une seule fois pour ce batch ──
+    const _ensureDefs=()=>{
+      const svg=leafRef.current.getPanes()?.overlayPane?.querySelector('svg');
+      if(!svg)return null;
+      let defs=svg.querySelector('defs');
+      if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild);}
+      return defs;
+    };
+    const _applyPattern=(circle,uid)=>{
+      const s=userStyle(uid,users);
+      if(s.pattern==='solid')return;
+      const{pid,def}=genSvgPattern(uid,s.color,s.pattern,s.emoji);
+      const defs=_ensureDefs();
+      if(!defs)return;
+      if(!defs.querySelector('#'+pid))defs.insertAdjacentHTML('beforeend',def);
+      const el=circle.getElement();
+      if(el){el.style.fill=`url(#${pid})`;el.style.fillOpacity='0.5';}
+    };
+
     posts.forEach(p=>{
       if(!p.lat||!p.lng)return;
       const inZone=canSee(p,myUid,gps);
@@ -294,6 +313,7 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
           fillOpacity:isOwn?(isSelected?0.08:0):dimmed?0.02:(isSelected?0.1:0.05),
           interactive:false
         }).addTo(leafRef.current);
+        if(!isOwn)_applyPattern(c1,p.uid);
         circles.push(c1);
       }
       circlesRef.current[p.id]=circles;
@@ -346,37 +366,6 @@ function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,a
       }
     });
   },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng]);
-
-  // ── Injection patterns SVG dans le calque Leaflet ──
-  useEffect(()=>{
-    const inject=()=>{
-      const map=leafRef.current;if(!map)return;
-      const svg=map.getPanes()?.overlayPane?.querySelector('svg');
-      if(!svg)return;
-      let defs=svg.querySelector('defs');
-      if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.insertBefore(defs,svg.firstChild);}
-      Array.from(defs.querySelectorAll('[id^="zp-"]')).forEach(el=>el.remove());
-      const done=new Set();
-      posts.forEach(p=>{
-        if(p.uid===myUid||done.has(p.uid))return;
-        done.add(p.uid);
-        const s=userStyle(p.uid,users);
-        if(s.pattern==='solid')return;
-        const{def}=genSvgPattern(p.uid,s.color,s.pattern,s.emoji);
-        defs.insertAdjacentHTML('beforeend',def);
-      });
-      Object.entries(circlesRef.current).forEach(([postId,circs])=>{
-        const p2=posts.find(x=>x.id===postId);
-        if(!p2||p2.uid===myUid)return;
-        const s=userStyle(p2.uid,users);
-        if(s.pattern==='solid')return;
-        const{pid}=genSvgPattern(p2.uid,s.color,s.pattern,s.emoji);
-        (Array.isArray(circs)?circs:[circs]).forEach(c=>{const el=c.getElement?.();if(el)el.setAttribute('fill',`url(#${pid})`);});
-      });
-    };
-    const t=setTimeout(inject,80);
-    return()=>clearTimeout(t);
-  },[posts,users,myUid]);
 
   return h("div",{ref:mapRef,style:{width:"100%",height:"100%"}});
 }
