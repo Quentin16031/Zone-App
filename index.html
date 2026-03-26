@@ -2510,7 +2510,7 @@ function App(){
           h("div",{style:{display:"flex",gap:10,alignItems:"center"}},
             selectedPost.photo&&canSee(selectedPost,myUid,gps)
               ?h("img",{src:selectedPost.photo,style:{width:50,height:50,borderRadius:10,objectFit:"cover",flexShrink:0}})
-              ?h("div",{style:{width:50,height:50,borderRadius:10,background:canSee(selectedPost,myUid,gps)?"var(--gbg)":"rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}},canSee(selectedPost,myUid,gps)?"📍":"🔒"),
+              :h("div",{style:{width:50,height:50,borderRadius:10,background:canSee(selectedPost,myUid,gps)?"var(--gbg)":"rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}},canSee(selectedPost,myUid,gps)?"📍":"🔒"),
             h("div",{style:{flex:1,minWidth:0}},
               h("div",{style:{display:"flex",alignItems:"center",gap:5,marginBottom:2}},
                 h(Av,{photo:users[selectedPost.uid]?.photo,pseudo:users[selectedPost.uid]?.pseudo||"?",sz:18,hue:uidHue(selectedPost.uid)}),
