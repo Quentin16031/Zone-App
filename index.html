@@ -1,0 +1,2809 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ZONE">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1D9E75">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/Zone-App/manifest.json">
+<link rel="apple-touch-icon" href="/Zone-App/zone_icon_180.png">
+<title>ZONE</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#EEF1F8;color:#0D1117;max-width:460px;margin:0 auto;min-height:100dvh;min-height:100vh}
+/* PWA iOS safe areas */
+:root{--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
+:root{
+  --bg:#fff;
+  --bg2:#F4F6FB;
+  --bg3:#EEF1F8;
+  --text:#0D1117;
+  --text2:#6B7280;
+  --text3:#9CA3AF;
+  --border:rgba(0,0,0,.07);
+  --border2:rgba(0,0,0,.12);
+  --border3:rgba(0,0,0,.2);
+  --r:14px;--rl:20px;--rxl:28px;
+  --green:#1D9E75;--gbg:#E8F7F2;--gtxt:#0F6E56;
+  --purple:#7C6FF7;--pbg:#F0EFFD;--ptxt:#4C45B8;
+  --red:#EF4444;
+  --shadow:0 2px 16px rgba(0,0,0,0.07);
+  --shadow2:0 4px 24px rgba(0,0,0,0.10);
+}
+/* Glassmorphism Zone */
+:root{
+  --zone-teal:#1DBEAA;--zone-teal-dark:#0D9E88;
+  --zone-purple:#9B6FFF;--zone-pink:#FF6B9D;--zone-cyan:#00D4FF;
+  --zone-text:#1a1a2e;--zone-text-light:#5a5a6e;
+  --glass-bg:rgba(255,255,255,0.15);--glass-bg-strong:rgba(255,255,255,0.25);
+  --glass-border:rgba(255,255,255,0.3);
+  --glass-shadow:0 8px 32px rgba(31,38,135,0.15);
+  --gradient-main:linear-gradient(135deg,#1DBEAA 0%,#00D4FF 50%,#9B6FFF 100%);
+  --gradient-soft:linear-gradient(135deg,rgba(29,190,170,0.06) 0%,rgba(155,111,255,0.06) 100%);
+}
+input,textarea,button,select{font-family:inherit}
+textarea,input{outline:none}
+input[type=range]{width:100%;accent-color:var(--green)}
+img{max-width:100%}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideBack{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes fadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes glassFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-20px) scale(1.05)}}
+@keyframes glassFloatSlow{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-14px) scale(1.03)}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 20px rgba(29,190,170,0.4)}50%{box-shadow:0 0 40px rgba(29,190,170,0.6)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.s-in{animation:slideIn .25s cubic-bezier(.25,.46,.45,.94) both}
+.s-back{animation:slideBack .25s cubic-bezier(.25,.46,.45,.94) both}
+.fade-up{animation:fadeUp .3s cubic-bezier(.25,.46,.45,.94) both}
+.camera-overlay{position:fixed;inset:0;background:#000;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center}
+/* Leaflet popup */
+.leaflet-popup-content-wrapper{border-radius:14px!important;box-shadow:var(--shadow2)!important}
+/* Liquid glass GPS marker — reset Leaflet default styles */
+.zone-gps-marker{background:transparent!important;border:none!important;}
+
+/* ── ReactBits: Ripple ── */
+@keyframes rippleAnim{from{transform:scale(0);opacity:0.45}to{transform:scale(4.5);opacity:0}}
+.ripple-wrap{position:relative;overflow:hidden;-webkit-mask-image:radial-gradient(white,white)}
+.ripple-wave{position:absolute;border-radius:50%;background:rgba(255,255,255,0.38);animation:rippleAnim .55s cubic-bezier(.25,.46,.45,.94) forwards;pointer-events:none;transform:scale(0);transform-origin:center}
+
+/* ── ReactBits: ShinyText ── */
+@keyframes shinyMove{0%{background-position:-200% center}100%{background-position:200% center}}
+.shiny-text{background:linear-gradient(90deg,rgba(255,255,255,0.7) 0%,rgba(255,255,255,0.7) 35%,rgba(255,255,255,1) 50%,rgba(255,255,255,0.7) 65%,rgba(255,255,255,0.7) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:shinyMove 2.8s linear infinite}
+
+/* ── ReactBits: BlurText ── */
+@keyframes blurIn{from{filter:blur(14px);opacity:0;transform:translateY(10px)}to{filter:blur(0);opacity:1;transform:translateY(0)}}
+.blur-word{display:inline-block;animation:blurIn 0.55s cubic-bezier(.25,.46,.45,.94) both}
+
+/* ── ReactBits: Aurora ── */
+@keyframes aurora1{0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}25%{transform:translate(50px,-35px) rotate(12deg) scale(1.08)}50%{transform:translate(-15px,55px) rotate(-8deg) scale(0.92)}75%{transform:translate(-50px,-18px) rotate(18deg) scale(1.04)}}
+@keyframes aurora2{0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}33%{transform:translate(-70px,35px) rotate(-18deg) scale(1.12)}66%{transform:translate(45px,-55px) rotate(12deg) scale(0.88)}}
+@keyframes aurora3{0%,100%{transform:translate(0,0) scale(1) rotate(0deg)}50%{transform:translate(35px,25px) scale(1.18) rotate(-12deg)}}
+@keyframes aurora4{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(-30px,45px) scale(1.1)}80%{transform:translate(55px,-20px) scale(0.9)}}
+
+/* ── ReactBits: AnimatedList ── */
+@keyframes listSlideIn{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── ReactBits: SpotlightCard ── */
+.spotlight-card{transition:box-shadow .25s;}
+
+/* ── Streak Celebration ── */
+@keyframes streakBadgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@keyframes streakCheckPop{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes streakFadeOut{0%{opacity:1}80%{opacity:1}100%{opacity:0;pointer-events:none}}
+@keyframes confettiBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{opacity:0}}
+@keyframes streakCountUp{0%{transform:translateY(20px);opacity:0}100%{transform:translateY(0);opacity:1}}
+@keyframes lgPulse{0%,100%{transform:scale(1);opacity:0.55}50%{transform:scale(1.18);opacity:1}}
+@keyframes lgRing{0%,100%{transform:scale(1);opacity:0.35}50%{transform:scale(1.08);opacity:0.65}}
+@keyframes sonarRing{0%{transform:scale(0.4);opacity:0.8}100%{transform:scale(2);opacity:0}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useEffect,useMemo,useRef,useCallback}=React;
+const h=React.createElement;
+
+// ── Firebase ─────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey:"AIzaSyBKGatJ_EK7iRZ5qSYspsmJASYkvWl2VKs",
+  authDomain:"zone-app-9fcdd.firebaseapp.com",
+  databaseURL:"https://zone-app-9fcdd-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"zone-app-9fcdd",
+  storageBucket:"zone-app-9fcdd.firebasestorage.app",
+  messagingSenderId:"585253956052",
+  appId:"1:585253956052:web:5a333bc726fc343f2c8e41"
+});
+const auth=firebase.auth();
+const db=firebase.database();
+
+// ── Utilitaires ──────────────────────────────────────────
+function haversine(la1,lo1,la2,lo2){
+  const R=6371000,d1=(la2-la1)*Math.PI/180,d2=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(d1/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(d2/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+const fmtD=m=>m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(1)} km`;
+const fmtDate=ts=>new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+
+function uidHue(uid){
+  // 20 couleurs harmonieuses, bien différenciées, lisibles sur fond clair
+  const hs=[
+    "#D75550","#6384C8","#DCA028","#8B6EC8","#40A878",
+    "#D4507A","#5BB8D4","#E8893A","#6DB86B","#C46A8A",
+    "#4A90D9","#B8A830","#7AC8A0","#D4783C","#9B6EC0",
+    "#3BAAB8","#C87840","#5E9E58","#C45050","#6878D0"
+  ];
+  const n=uid.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  return hs[n%hs.length];
+}
+
+// ── Style personnalisé utilisateur (couleur, motif, emoji) ──
+function userStyle(uid,users){
+  const u=users?.[uid]||{};
+  return{color:u.userColor||uidHue(uid),pattern:u.userPattern||'solid',emoji:u.userEmoji||'🌟'};
+}
+function extractFirstEmoji(str){
+  try{const m=str.match(/\p{Extended_Pictographic}(\u200D\p{Extended_Pictographic})*/gu);return m?m[0]:null;}catch(e){return null;}
+}
+function genSvgPattern(uid,color,pattern,emoji){
+  const pid='zp-'+uid.replace(/[^a-zA-Z0-9]/g,'').slice(0,12);
+  const sz=pattern==='emoji'?26:pattern==='stars'?18:pattern==='crosses'?14:10;
+  const fop=pattern==='solid'?'0.1':'0.04';
+  let inner='';
+  switch(pattern){
+    case'dots':   inner=`<circle cx="5" cy="5" r="2.2" fill="${color}" opacity=".55"/>`;break;
+    case'hatch':  inner=`<path d="M-2,10L10,-2M-2,2L2,-2M8,10L10,8" stroke="${color}" stroke-width="1.3" opacity=".5"/>`;break;
+    case'grid':   inner=`<path d="M5,0V10M0,5H10" stroke="${color}" stroke-width=".9" opacity=".45"/>`;break;
+    case'dashes': inner=`<line x1="0" y1="5" x2="4" y2="5" stroke="${color}" stroke-width="1.6" opacity=".5" stroke-linecap="round"/>`;break;
+    case'stars':  inner=`<text x="9" y="13.5" text-anchor="middle" font-size="11" fill="${color}" opacity=".55">★</text>`;break;
+    case'crosses':inner=`<path d="M7,3V11M3,7H11" stroke="${color}" stroke-width="1.3" opacity=".5" stroke-linecap="round" fill="none"/>`;break;
+    case'waves':  inner=`<path d="M0,5Q2.5,2 5,5Q7.5,8 10,5" stroke="${color}" fill="none" stroke-width="1.1" opacity=".5"/>`;break;
+    case'emoji':  inner=`<text x="${sz/2}" y="${sz*0.74}" text-anchor="middle" font-size="${Math.round(sz*0.7)}" opacity="0.5" font-family="Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif">${emoji||'🌟'}</text>`;break;
+  }
+  return{pid,def:`<pattern id="${pid}" x="0" y="0" width="${sz}" height="${sz}" patternUnits="userSpaceOnUse"><rect width="${sz}" height="${sz}" fill="${color}" opacity="${fop}"/>${inner}</pattern>`};
+}
+
+// Couleur d'un post : catégorie si définie, sinon couleur de l'auteur
+// cats = tableau des catégories de l'auteur du post
+function postColor(post,authorCats){
+  if(!post.cat||!authorCats)return uidHue(post.uid);
+  // Chaque catégorie hérite d'une couleur dérivée de son id
+  const catColors=[
+    "#D75550","#6384C8","#DCA028","#8B6EC8","#40A878",
+    "#D4507A","#5BB8D4","#E8893A","#6DB86B","#C46A8A",
+    "#4A90D9","#B8A830","#7AC8A0","#D4783C","#9B6EC0",
+    "#3BAAB8","#C87840","#5E9E58","#C45050","#6878D0"
+  ];
+  const n=post.cat.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  return catColors[n%catColors.length];
+}
+
+function compressImg(file){
+  return new Promise(ok=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const i=new Image();
+      i.onload=()=>{
+        const MAX=520,sc=Math.min(1,MAX/Math.max(i.width,i.height));
+        const c=document.createElement('canvas');
+        c.width=Math.round(i.width*sc);c.height=Math.round(i.height*sc);
+        c.getContext('2d').drawImage(i,0,0,c.width,c.height);
+        ok(c.toDataURL('image/jpeg',0.55));
+      };
+      i.src=e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+// Vérifie si uid peut voir le post p selon la distance ET l'accès catégorie
+const canSeeAccess=(p,viewerUid,allUsers,allCats)=>{
+  if(p.uid===viewerUid)return true; // toujours voir ses propres posts
+  const authorCats=allCats?.[p.uid]||{};
+  const cat=p.cat?authorCats[p.cat]:null;
+  const access=cat?.access||"public";
+  if(access==="private")return false;
+  if(access==="public"){
+    // public = tous les abonnés de l'auteur (ceux qui suivent l'auteur)
+    const viewerFollowing=allUsers?.[viewerUid]?.following||{};
+    return !!viewerFollowing[p.uid];
+  }
+  // custom = seulement les uids listés dans access.custom
+  if(typeof access==="object"&&access.custom){
+    return !!access.custom[viewerUid];
+  }
+  return false;
+};
+const canSee=(p,uid,gps)=>p.uid===uid||(gps&&haversine(gps.lat,gps.lng,p.lat,p.lng)<=p.radius);
+const aLbl=a=>a==="public"?{icon:"🌍",label:"Tout le monde",c:"#1D9E75",bg:"#E1F5EE"}:a==="private"?{icon:"🔒",label:"Moi seul",c:"#888",bg:"#f1efe8"}:{icon:"👥",label:`${Object.keys((a&&a.custom)||{}).length} abonné(s)`,c:"#378ADD",bg:"#E6F1FB"};
+
+// ── CARTE LEAFLET ────────────────────────────────────────
+function ZoneMap({posts,gps,myUid,users,onSelectPost,selectedPostId,onMapReady,allCats,dark=false}){
+  const mapRef=useRef(null);
+  const leafRef=useRef(null);
+  const markersRef=useRef({});
+  const circlesRef=useRef({});
+  const myMarkerRef=useRef(null);
+  const centeredRef=useRef(false);
+
+  // Init carte
+  useEffect(()=>{
+    if(!mapRef.current||leafRef.current)return;
+    const center=gps?[gps.lat,gps.lng]:[48.8566,2.3522];
+    const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView(center,14);
+    const tileUrl=dark
+      ?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      :'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    L.tileLayer(tileUrl,{maxZoom:19,subdomains:'abcd'}).addTo(map);
+    leafRef.current=map;
+    if(gps)centeredRef.current=true;
+    if(onMapReady)onMapReady(map);
+    return()=>{map.remove();leafRef.current=null;centeredRef.current=false;};
+  },[]);
+
+  // Centrage GPS unique
+  useEffect(()=>{
+    if(!leafRef.current||!gps||centeredRef.current)return;
+    leafRef.current.setView([gps.lat,gps.lng],15,{animate:true});
+    centeredRef.current=true;
+  },[gps?.lat,gps?.lng]);
+
+  // Marqueur ma position
+  useEffect(()=>{
+    if(!leafRef.current||!gps)return;
+    if(myMarkerRef.current){myMarkerRef.current.setLatLng([gps.lat,gps.lng]);return;}
+    const icon=L.divIcon({className:'zone-gps-marker',html:`<style>.zs-ring{position:absolute;width:40px;height:40px;border-radius:50%;border:2.5px solid #6C63FF;animation:zsonar 2s ease-out infinite}.zs-ring2{animation-delay:1s}@keyframes zsonar{0%{transform:scale(0.4);opacity:0.9}100%{transform:scale(2.2);opacity:0}}</style><div style="width:60px;height:60px;position:relative;display:flex;align-items:center;justify-content:center;"><div class="zs-ring"></div><div class="zs-ring zs-ring2"></div><div style="width:16px;height:16px;border-radius:50%;background:#6C63FF;border:3px solid #fff;box-shadow:0 2px 12px rgba(108,99,255,0.8);position:relative;z-index:2;flex-shrink:0;"></div></div>`,iconSize:[60,60],iconAnchor:[30,30]});
+    myMarkerRef.current=L.marker([gps.lat,gps.lng],{icon,zIndexOffset:1000,interactive:false}).addTo(leafRef.current);
+  },[gps?.lat,gps?.lng]);
+
+  // Marqueurs posts — Concept B enhanced : pills Zenly + zones sur les autres
+  useEffect(()=>{
+    if(!leafRef.current)return;
+    Object.values(markersRef.current).forEach(m=>m.remove());
+    Object.values(circlesRef.current).forEach(arr=>(Array.isArray(arr)?arr:[arr]).forEach(c=>c.remove()));
+    markersRef.current={};circlesRef.current={};
+
+    // ── Injecter les patterns dans un SVG global du body (résolution url(#id) cross-document) ──
+    let globalSvg=document.getElementById('zone-pattern-defs');
+    if(!globalSvg){
+      globalSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      globalSvg.setAttribute('id','zone-pattern-defs');
+      globalSvg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+      globalSvg.style.cssText='position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
+      document.body.appendChild(globalSvg);
+    }
+    // Vider les anciens patterns
+    while(globalSvg.firstChild)globalSvg.removeChild(globalSvg.firstChild);
+    // Injecter un pattern par uid unique (autres utilisateurs seulement)
+    const done=new Set();
+    posts.forEach(p=>{
+      if(p.uid===myUid||done.has(p.uid))return;
+      done.add(p.uid);
+      const s=userStyle(p.uid,users);
+      if(s.pattern==='solid')return;
+      const{def}=genSvgPattern(p.uid,s.color,s.pattern,s.emoji);
+      globalSvg.insertAdjacentHTML('beforeend',def);
+    });
+
+    posts.forEach(p=>{
+      if(!p.lat||!p.lng)return;
+      const isSelected=p.id===selectedPostId;
+      const isOwn=p.uid===myUid;
+      const dimmed=selectedPostId&&!isSelected;
+      const alpha=dimmed?0.25:1;
+      const userColor=userStyle(p.uid,users).color;
+      const u=users[p.uid];
+      const dist=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):null;
+      const distTxt=dist!==null?fmtD(dist):"";
+
+      // ── Zone ──
+      const circles=[];
+      if(!isOwn||(isOwn&&isSelected)){
+        const s=isOwn?null:userStyle(p.uid,users);
+        const usePat=!isOwn&&s&&s.pattern!=='solid';
+        const{pid}=usePat?genSvgPattern(p.uid,s.color,s.pattern,s.emoji):{pid:null};
+        const c1=L.circle([p.lat,p.lng],{
+          radius:p.radius,
+          color:userColor,
+          weight:isSelected?1.8:1,
+          opacity:isOwn?(isSelected?0.5:0):dimmed?0.1:(isSelected?0.45:0.25),
+          fillColor:usePat?`url(#${pid})`:userColor,
+          fillOpacity:isOwn?(isSelected?0.08:0):dimmed?0.02:(isSelected?0.1:0.05),
+          interactive:false
+        }).addTo(leafRef.current);
+        circles.push(c1);
+      }
+      circlesRef.current[p.id]=circles;
+
+      let markerHtml;
+
+      if(isOwn){
+        // ── Mes posts : simple dot teal ──
+        const sz=isSelected?14:8;
+        const ring=isSelected?24:16;
+        markerHtml=`<div style="position:relative;width:${ring}px;height:${ring}px;opacity:${alpha}">
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:#1D9E75;border:2px solid #fff;box-shadow:0 1px 4px rgba(29,158,117,0.3)"></div>
+          ${isSelected?`<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#fff;pointer-events:none"></div>`:''}
+        </div>`;
+        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[ring,ring],iconAnchor:[ring/2,ring/2]});
+        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:30}).addTo(leafRef.current);
+        marker.on('click',(e)=>{L.DomEvent.stopPropagation(e);onSelectPost&&onSelectPost(p);});
+        markersRef.current[p.id]=marker;
+      } else {
+        // ── Posts des autres : pill photo/initiales + pseudo + distance ──
+        const pseudo=(u?.pseudo||"?").slice(0,8);
+        const hasPhoto=!!u?.photo;
+        const pillH=isSelected?38:32;
+        const avatarSz=isSelected?26:22;
+        const fontSize=isSelected?11:10;
+        const distFontSize=isSelected?9:8;
+        const padR=isSelected?12:10;
+
+        // Avatar : photo (img) ou initiales
+        const avatarHtml=hasPhoto
+          ?`<img src="${u.photo}" style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;object-fit:cover;display:block;flex-shrink:0;border:1.5px solid ${userColor}44" />`
+          :`<div style="width:${avatarSz}px;height:${avatarSz}px;border-radius:50%;background:${userColor};display:flex;align-items:center;justify-content:center;font-size:${isSelected?10:8}px;font-weight:700;color:#fff;flex-shrink:0">${(u?.pseudo||"?").slice(0,2).toUpperCase()}</div>`;
+
+        markerHtml=`<div style="display:flex;flex-direction:column;align-items:center;opacity:${alpha}">
+          <div style="background:#fff;border-radius:${pillH/2}px;height:${pillH}px;padding:${(pillH-avatarSz)/2}px ${padR}px ${(pillH-avatarSz)/2}px ${(pillH-avatarSz)/2}px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.12);border:1.5px solid ${isSelected?userColor:userColor+'66'}">
+            ${avatarHtml}
+            <div style="display:flex;flex-direction:column;line-height:1.2">
+              <span style="font-size:${fontSize}px;font-weight:700;color:#1a1a2e;white-space:nowrap">${pseudo}</span>
+              ${distTxt?`<span style="font-size:${distFontSize}px;font-weight:500;color:${userColor};white-space:nowrap;opacity:0.8">${distTxt}</span>`:''}
+            </div>
+          </div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #fff;margin-top:-1px;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.08))"></div>
+        </div>`;
+        const anchorH=pillH+5;
+        const pillW=isSelected?120:100;
+        const icon=L.divIcon({className:'',html:markerHtml,iconSize:[pillW,anchorH],iconAnchor:[pillW/2,anchorH]});
+        const marker=L.marker([p.lat,p.lng],{icon,zIndexOffset:isSelected?500:100}).addTo(leafRef.current);
+        marker.on('click',(e)=>{L.DomEvent.stopPropagation(e);onSelectPost&&onSelectPost(p);});
+        markersRef.current[p.id]=marker;
+      }
+    });
+  },[posts.map(p=>p.id).join(','),selectedPostId,gps?.lat,gps?.lng]);
+
+  return h("div",{ref:mapRef,style:{width:"100%",height:"100%"}});
+}
+
+// ── DB helpers ───────────────────────────────────────────
+const pushPost=(uid,data)=>db.ref('posts').push({...data,uid,ts:Date.now()});
+const patchPost=(id,d)=>db.ref('posts/'+id).update(d);
+const rmPost=id=>db.ref('posts/'+id).remove();
+const toggleLike=(id,uid,has)=>db.ref(`posts/${id}/likes/${uid}`).set(has?null:true);
+const setReaction=(postId,uid,type)=>db.ref(`posts/${postId}/likes/${uid}`).set(type||null);
+const REACTIONS=[
+  {key:"heart",em:"❤️",bg:"#FEE2E2",fg:"#991B1B"},
+  {key:"fire",em:"🔥",bg:"#FFF7ED",fg:"#9A3412"},
+  {key:"laugh",em:"😂",bg:"#FEF9C3",fg:"#854D0E"},
+  {key:"wow",em:"😮",bg:"#E0E7FF",fg:"#3730A3"},
+  {key:"clap",em:"👏",bg:"#ECFDF5",fg:"#065F46"}
+];
+const addComment=(postId,uid,text)=>db.ref(`comments/${postId}`).push({uid,text,ts:Date.now()});
+const rmComment=(postId,cid)=>db.ref(`comments/${postId}/${cid}`).remove();
+const saveProfile=(uid,d)=>db.ref('users/'+uid).update(d);
+const toggleFollow=(myUid,tid,isF)=>db.ref(`users/${myUid}/following/${tid}`).set(isF?null:true);
+const doBlock=(myUid,tid)=>{db.ref(`users/${myUid}/blocked/${tid}`).set(true);db.ref(`users/${myUid}/following/${tid}`).remove();};
+const doUnblock=(myUid,tid)=>db.ref(`users/${myUid}/blocked/${tid}`).remove();
+const saveCat=(uid,cid,d)=>db.ref(`categories/${uid}/${cid}`).set(d);
+const rmCat=(uid,cid)=>db.ref(`categories/${uid}/${cid}`).remove();
+
+// ── Petits composants ─────────────────────────────────────
+const Av=({photo,pseudo,sz=36,hue})=>{
+  const c=hue||"#1D9E75";
+  return photo
+    ?h("img",{src:photo,style:{width:sz,height:sz,borderRadius:"50%",objectFit:"cover",flexShrink:0,display:"block"}})
+    :h("div",{style:{width:sz,height:sz,borderRadius:"50%",flexShrink:0,background:c+"28",color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz>44?15:11,fontWeight:500}},(pseudo||"?").slice(0,2).toUpperCase());
+};
+
+const CatBdg=({catId,cats})=>{
+  const c=cats?.find(x=>x.id===catId);
+  if(!c)return null;
+  return h("span",{style:{fontSize:11,padding:"2px 7px",borderRadius:20,background:"var(--bg2)",color:"var(--text3)"}},`${c.emoji} ${c.name}`);
+};
+
+// ── ONBOARDING ────────────────────────────────────────────
+
+// ── ReactBits: Ripple wrapper ──
+function Ripple({children,style,onClick,disabled,...props}){
+  const [waves,setWaves]=useState([]);
+  const handleClick=e=>{
+    if(disabled)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const x=e.clientX-rect.left,y=e.clientY-rect.top;
+    const sz=Math.max(rect.width,rect.height)*2;
+    const id=Date.now()+Math.random();
+    setWaves(w=>[...w,{id,x,y,sz}]);
+    setTimeout(()=>setWaves(w=>w.filter(r=>r.id!==id)),600);
+    if(onClick)onClick(e);
+  };
+  return h("div",{...props,className:"ripple-wrap",style,onClick:handleClick},
+    children,
+    waves.map(w=>h("span",{key:w.id,className:"ripple-wave",style:{left:w.x-w.sz/2,top:w.y-w.sz/2,width:w.sz,height:w.sz}}))
+  );
+}
+
+// ── ReactBits: BlurText ──
+function BlurText({text,style,delayBase=0,delayStep=60}){
+  const words=text.split(" ");
+  return h("span",{style},
+    words.map((w,i)=>h("span",{key:i,className:"blur-word",style:{animationDelay:`${delayBase+i*delayStep}ms`,marginRight:i<words.length-1?"0.25em":0}},w))
+  );
+}
+
+// ── ReactBits: Aurora background (remplace les blobs) ──
+function Aurora({style}){
+  return h("div",{style:{position:"absolute",inset:0,overflow:"hidden",pointerEvents:"none",...style}},
+    h("div",{style:{position:"absolute",top:"-20%",left:"-15%",width:"60%",height:"60%",borderRadius:"50%",background:"radial-gradient(circle,rgba(29,190,170,0.55) 0%,transparent 70%)",filter:"blur(55px)",animation:"aurora1 14s ease-in-out infinite"}}),
+    h("div",{style:{position:"absolute",top:"10%",right:"-20%",width:"55%",height:"55%",borderRadius:"50%",background:"radial-gradient(circle,rgba(0,212,255,0.45) 0%,transparent 70%)",filter:"blur(50px)",animation:"aurora2 18s ease-in-out infinite"}}),
+    h("div",{style:{position:"absolute",bottom:"-10%",left:"10%",width:"65%",height:"65%",borderRadius:"50%",background:"radial-gradient(circle,rgba(155,111,255,0.5) 0%,transparent 70%)",filter:"blur(60px)",animation:"aurora3 22s ease-in-out infinite"}}),
+    h("div",{style:{position:"absolute",bottom:"15%",right:"-5%",width:"45%",height:"45%",borderRadius:"50%",background:"radial-gradient(circle,rgba(255,107,157,0.3) 0%,transparent 70%)",filter:"blur(45px)",animation:"aurora4 16s ease-in-out infinite",animationDelay:"3s"}})
+  );
+}
+function Welcome({onStart}){
+  return h("div",{style:{display:"flex",flexDirection:"column",minHeight:"100vh",padding:"0 24px",background:"linear-gradient(135deg,#0a1628 0%,#0d2137 30%,#0f1a2e 60%,#130d28 100%)",position:"relative",overflow:"hidden"}},
+    h(Aurora),
+    h("div",{style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",paddingTop:48,position:"relative",zIndex:2,animation:"slideUp .5s ease-out both"}},
+      // Logo Z — glass card
+      h("div",{style:{width:80,height:80,borderRadius:24,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1.5px solid rgba(255,255,255,0.25)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:28,animation:"pulseGlow 2s ease-in-out infinite"}},
+        h("span",{className:"shiny-text",style:{fontSize:36,fontWeight:700,letterSpacing:"0.05em"}},"Z")),
+      h("h1",{style:{fontSize:42,fontWeight:700,margin:"0 0 10px",letterSpacing:"0.04em"}},
+        h(BlurText,{text:"ZONE",style:{color:"#fff"},delayBase:100,delayStep:80})
+      ),
+      h("p",{style:{fontSize:16,color:"rgba(255,255,255,0.85)",lineHeight:1.7,maxWidth:300,margin:"0 0 6px"}},
+        h(BlurText,{text:"Le réseau social ancré dans le réel",delayBase:300,delayStep:40})
+      ),
+      h("p",{style:{fontSize:14,color:"rgba(255,255,255,0.65)",lineHeight:1.75,maxWidth:300,margin:"0 0 36px",animation:"blurIn 0.6s 0.7s both"}},"Partage des moments visibles uniquement par ceux qui sont au même endroit que toi."),
+      h("div",{style:{display:"flex",flexDirection:"column",gap:10,width:"100%",maxWidth:320}},
+        [["📍","Tes posts créent des zones GPS autour de toi"],
+         ["🔒","Contrôle qui peut voir chaque catégorie"],
+         ["📷","Partage avec ceux qui sont vraiment là"]]
+        .map(([icon,txt],i)=>h("div",{key:i,style:{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",background:"rgba(255,255,255,0.1)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:20,textAlign:"left",boxShadow:"0 8px 32px rgba(31,38,135,0.15)",animation:"blurIn 0.5s both",animationDelay:`${800+i*120}ms`}},
+          h("span",{style:{fontSize:28,flexShrink:0}},icon),
+          h("span",{style:{fontSize:13,color:"rgba(255,255,255,0.85)",lineHeight:1.5}},txt)
+        ))
+      )
+    ),
+    h("div",{style:{padding:"24px 0 48px",position:"relative",zIndex:2}},
+      h(Ripple,{onClick:onStart,style:{width:"100%",padding:16,fontSize:16,fontWeight:700,background:"rgba(255,255,255,0.95)",color:"var(--zone-teal)",border:"none",borderRadius:20,cursor:"pointer",boxShadow:"0 8px 32px rgba(0,0,0,0.3)",animation:"blurIn 0.5s 1.1s both"}},
+        "Commencer"),
+      h("p",{style:{textAlign:"center",fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:12}},"En continuant tu acceptes les conditions d'utilisation")
+    )
+  );
+}
+
+function GoogleSignIn({onSign,loading,error}){
+  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"linear-gradient(135deg,#0a1628 0%,#0d2137 30%,#0f1a2e 60%,#130d28 100%)",textAlign:"center",position:"relative",overflow:"hidden"}},
+    h(Aurora),
+    h("div",{style:{position:"relative",zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",maxWidth:340,width:"100%",animation:"slideUp .5s ease-out both"}},
+      h("div",{style:{fontSize:56,marginBottom:24,animation:"glassFloatSlow 4s ease-in-out infinite"}},"🔐"),
+      h("h2",{style:{fontSize:28,fontWeight:700,margin:"0 0 10px"}},h(BlurText,{text:"Connexion",style:{color:"#fff"},delayBase:100,delayStep:60})),
+      h("p",{style:{fontSize:15,color:"rgba(255,255,255,0.75)",margin:"0 0 36px",lineHeight:1.6,maxWidth:280,animation:"blurIn 0.5s 0.4s both"}},"Connecte-toi avec Google pour accéder à ZONE"),
+      error&&h("div",{style:{width:"100%",fontSize:13,color:"#fff",marginBottom:18,padding:"12px 16px",background:"rgba(255,255,255,0.15)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:16}},"❌ Erreur de connexion. Réessaie."),
+      h(Ripple,{onClick:loading?null:onSign,disabled:loading,style:{display:"flex",alignItems:"center",gap:12,padding:"15px 24px",background:"rgba(255,255,255,0.15)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.25)",borderRadius:20,cursor:"pointer",fontSize:15,fontWeight:600,color:"#fff",width:"100%",maxWidth:320,justifyContent:"center",opacity:loading?0.6:1,boxShadow:"0 8px 32px rgba(31,38,135,0.2)",animation:"blurIn 0.5s 0.6s both"}},
+        h("svg",{width:20,height:20,viewBox:"0 0 18 18"},
+          h("path",{fill:"#4285F4",d:"M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"}),
+          h("path",{fill:"#34A853",d:"M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"}),
+          h("path",{fill:"#FBBC05",d:"M4.5 10.48A4.8 4.8 0 0 1 4.5 7.5V5.43H1.83a8 8 0 0 0 0 7.14l2.67-2.09z"}),
+          h("path",{fill:"#EA4335",d:"M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.65.02 8.98.02A8 8 0 0 0 1.83 5.43L4.5 7.5a4.77 4.77 0 0 1 4.48-3.92z"})
+        ),
+        loading?"Connexion…":"Continuer avec Google"
+      )
+    )
+  );
+}
+
+function ProfileSetup({uid,onDone}){
+  const [pseudo,setPseudo]=useState("");
+  const [bio,setBio]=useState("");
+  const [ville,setVille]=useState("");
+  const [photo,setPhoto]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const fileRef=useRef(null);
+  const ok=pseudo.trim().length>=2;
+
+  const handleFile=async f=>{
+    if(!f||!f.type.startsWith("image/"))return;
+    setPhoto(await compressImg(f));
+  };
+
+  const save=async()=>{
+    if(!ok||saving)return;
+    setSaving(true);
+    await saveProfile(uid,{pseudo:pseudo.trim(),bio:bio.trim(),ville:ville.trim(),photo:photo||null,following:{},blocked:{},createdAt:Date.now()});
+    onDone();
+  };
+
+  const glassInputStyle={width:"100%",padding:"13px 16px",fontSize:14,background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:14,color:"#fff",boxSizing:"border-box"};
+
+  return h("div",{style:{minHeight:"100vh",padding:"0 24px 60px",background:"linear-gradient(135deg,#0a1628 0%,#0d2137 30%,#0f1a2e 60%,#130d28 100%)",position:"relative",overflow:"hidden"}},
+    h(Aurora),
+    h("div",{style:{position:"relative",zIndex:2,animation:"slideUp .5s ease-out both"}},
+      h("div",{style:{paddingTop:28,display:"flex",justifyContent:"flex-end"}},h("span",{style:{fontSize:12,color:"rgba(255,255,255,0.6)"}},"1 / 2")),
+      h("h2",{style:{fontSize:28,fontWeight:700,margin:"12px 0 6px",color:"#fff"}},"Crée ton profil"),
+      h("p",{style:{fontSize:14,color:"rgba(255,255,255,0.8)",margin:"0 0 24px"}},"Ces informations seront visibles par les autres"),
+      // Photo upload
+      h("div",{style:{display:"flex",justifyContent:"center",marginBottom:24}},
+        h("div",{style:{position:"relative",cursor:"pointer"},onClick:()=>fileRef.current?.click()},
+          photo?h("img",{src:photo,style:{width:96,height:96,borderRadius:"50%",objectFit:"cover",display:"block",border:"3px solid rgba(255,255,255,0.3)",boxShadow:"0 8px 32px rgba(31,38,135,0.2)"}})
+            :h("div",{style:{width:96,height:96,borderRadius:"50%",background:"rgba(255,255,255,0.2)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.3)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4}},h("span",{style:{fontSize:28}},"📷"),h("span",{style:{fontSize:10,color:"rgba(255,255,255,0.7)"}},"Photo")),
+          h("div",{style:{position:"absolute",bottom:2,right:2,width:28,height:28,borderRadius:"50%",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"var(--zone-text)",border:"2px solid rgba(255,255,255,0.3)",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}},"✎"),
+          h("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+        )
+      ),
+      // Form fields
+      h("div",{style:{display:"flex",flexDirection:"column",gap:16}},
+        h("div",null,
+          h("label",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.9)",display:"block",marginBottom:6}},"Pseudo *"),
+          h("input",{value:pseudo,onChange:e=>setPseudo(e.target.value.replace(/[^a-zA-Z0-9_]/g,"")),placeholder:"ex: marie_explore",maxLength:24,style:glassInputStyle}),
+          h("div",{style:{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:4}},pseudo.length+"/24 · lettres, chiffres et _")
+        ),
+        h("div",null,
+          h("label",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.9)",display:"block",marginBottom:6}},"Bio"),
+          h("textarea",{value:bio,onChange:e=>setBio(e.target.value),placeholder:"Ex : 📸 Chasseuse de panoramas · Lyon",maxLength:80,rows:2,style:Object.assign({},glassInputStyle,{resize:"none",fontFamily:"inherit"})}),
+          h("div",{style:{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:4}},bio.length+"/80")
+        ),
+        h("div",null,
+          h("label",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.9)",display:"block",marginBottom:6}},"Ville"),
+          h("input",{value:ville,onChange:e=>setVille(e.target.value),placeholder:"ex: Marseille",maxLength:40,style:glassInputStyle})
+        )
+      ),
+      h("button",{onClick:save,disabled:!ok||saving,style:{marginTop:28,width:"100%",padding:16,fontSize:16,fontWeight:600,background:ok&&!saving?"#fff":"rgba(255,255,255,0.15)",color:ok&&!saving?"var(--zone-teal)":"rgba(255,255,255,0.4)",border:ok&&!saving?"none":"1px solid rgba(255,255,255,0.2)",borderRadius:20,cursor:ok?"pointer":"default",boxShadow:ok&&!saving?"0 8px 32px rgba(0,0,0,0.15)":"none",transition:"all .3s"}},saving?"Sauvegarde…":"Continuer →")
+    )
+  );
+}
+
+function GpsScreen({onDone}){
+  const [status,setStatus]=useState("idle"); // idle | requesting | success | denied | timeout | unavailable
+  const [errorCode,setErrorCode]=useState(null);
+
+  const request=()=>{
+    if(!navigator.geolocation){setStatus("unavailable");return;}
+    setStatus("requesting");
+    navigator.geolocation.getCurrentPosition(
+      pos=>{setStatus("success");setTimeout(()=>onDone(pos),600);},
+      err=>{
+        setErrorCode(err.code);
+        setStatus(err.code===1?"denied":err.code===3?"timeout":"unavailable");
+      },
+      {enableHighAccuracy:true,timeout:12000,maximumAge:0}
+    );
+  };
+
+  useEffect(()=>{
+    if(navigator.permissions){
+      navigator.permissions.query({name:"geolocation"}).then(r=>{
+        if(r.state==="granted")request();
+      }).catch(()=>{});
+    }
+  },[]);
+
+  const statusInfo={
+    idle:{icon:"📍",color:"from-teal",title:"Localisation requise",sub:"ZONE utilise ta position pour afficher les posts autour de toi et ancrer tes publications."},
+    requesting:{icon:"⏳",color:"from-purple",title:"Récupération en cours…",sub:"Recherche de ta position GPS. Cela peut prendre quelques secondes."},
+    success:{icon:"✅",color:"from-teal",title:"Position trouvée !",sub:"Tu vas être redirigé vers l'app…"},
+    denied:{icon:"🚫",color:"from-red",title:"Accès refusé",sub:"Tu as refusé la localisation. Pour l'activer : Réglages → Safari (ou Chrome) → Localisation → Autoriser."},
+    timeout:{icon:"⏱",color:"from-orange",title:"Signal GPS faible",sub:"Impossible d'obtenir ta position. Essaie à l'extérieur ou vérifie que le GPS est activé dans les réglages de ton téléphone."},
+    unavailable:{icon:"❌",color:"from-red",title:"GPS indisponible",sub:"La géolocalisation n'est pas disponible sur cet appareil ou ce navigateur."},
+  };
+  const si=statusInfo[status]||statusInfo.idle;
+
+  // Icon card gradient based on status
+  const iconBg=status==="denied"||status==="unavailable"
+    ?"linear-gradient(135deg,#ef4444,#dc2626)"
+    :status==="timeout"?"linear-gradient(135deg,#f59e0b,#d97706)"
+    :status==="requesting"?"linear-gradient(135deg,#9B6FFF,#FF6B9D)"
+    :"linear-gradient(135deg,#1DBEAA,#00D4FF)";
+
+  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:"0 24px",background:"linear-gradient(135deg,#0a1628 0%,#0d2137 30%,#0f1a2e 60%,#130d28 100%)",textAlign:"center",position:"relative",overflow:"hidden"}},
+    h(Aurora),
+
+    h("div",{style:{position:"relative",zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",maxWidth:360,width:"100%",animation:"slideUp .5s ease-out both"}},
+
+      // Icône animée
+      h("div",{style:{
+        width:96,height:96,borderRadius:28,
+        background:iconBg,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:44,marginBottom:28,
+        boxShadow:"0 12px 40px rgba(0,0,0,0.2)",
+        animation:status==="requesting"?"pulseGlow 1.5s ease-in-out infinite":""
+      }},si.icon),
+
+      h("h2",{style:{fontSize:28,fontWeight:700,margin:"0 0 10px"}},h(BlurText,{text:si.title,style:{color:"#fff"},delayBase:0,delayStep:50})),
+      h("p",{style:{fontSize:14,color:"rgba(255,255,255,0.75)",lineHeight:1.7,margin:"0 0 28px",maxWidth:320}},si.sub),
+
+      // Infos réglages si refus — iOS spécifique
+      status==="denied"&&h("div",{style:{width:"100%",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:20,padding:"16px 18px",marginBottom:20,textAlign:"left"}},
+        h("div",{style:{fontSize:13,fontWeight:700,color:"#fff",marginBottom:10}},"📱 Comment activer sur iPhone :"),
+        ["1. Ouvre l'app Réglages","2. Descends jusqu'à Safari (ou Chrome)","3. Appuie sur 'Localisation'","4. Sélectionne 'Lors de l'utilisation'"]
+        .map((t,i)=>h("div",{key:i,style:{fontSize:12,color:"rgba(255,255,255,0.8)",padding:"3px 0"}},t))
+      ),
+
+      // Réglages si timeout
+      status==="timeout"&&h("div",{style:{width:"100%",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:20,padding:"16px 18px",marginBottom:20,textAlign:"left"}},
+        h("div",{style:{fontSize:13,fontWeight:700,color:"#fff",marginBottom:10}},"Conseils :"),
+        ["• Va à l'extérieur ou près d'une fenêtre","• Vérifie que le GPS est activé dans Réglages → Confidentialité → Service de localisation","• Réessaie dans quelques secondes"]
+        .map((t,i)=>h("div",{key:i,style:{fontSize:12,color:"rgba(255,255,255,0.8)",padding:"3px 0"}},t))
+      ),
+
+      // Boutons
+      h("div",{style:{display:"flex",flexDirection:"column",gap:10,width:"100%"}},
+        (status==="idle"||status==="denied"||status==="timeout"||status==="unavailable")&&
+          h(Ripple,{
+            onClick:request,
+            style:{padding:16,fontSize:15,fontWeight:700,background:"rgba(255,255,255,0.95)",color:"var(--zone-teal)",border:"none",borderRadius:20,cursor:"pointer",boxShadow:"0 8px 32px rgba(0,0,0,0.25)"}
+          },status==="idle"?"Activer la localisation":"Réessayer"),
+        status==="requesting"&&h("div",{style:{padding:16,fontSize:14,color:"rgba(255,255,255,0.8)",textAlign:"center",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:20}},"Recherche en cours…"),
+        status!=="success"&&h(Ripple,{
+          onClick:()=>onDone(null),
+          style:{padding:15,fontSize:14,fontWeight:500,background:"rgba(255,255,255,0.12)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.25)",borderRadius:20,cursor:"pointer",color:"#fff"}},"Continuer sans localisation")
+      ),
+
+      h("p",{style:{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:20,maxWidth:280}},"Sans GPS, tu ne pourras pas voir les posts des autres ni publier de contenu")
+    )
+  );
+}
+
+
+
+// ── POST CARD ─────────────────────────────────────────────
+function PostCard({post,myUid,gps,cats,users,onAuthor,onEdit,onDelete}){
+  const u=users[post.uid];
+  const hue=userStyle(post.uid,users).color;
+  const d=gps?haversine(gps.lat,gps.lng,post.lat,post.lng):Infinity;
+  const vis=canSee(post,myUid,gps);
+  const own=post.uid===myUid;
+  const inZone=d<=post.radius;
+  const [menu,setMenu]=useState(false);
+  const [ed,setEd]=useState(false);
+  const [edTxt,setEdTxt]=useState(post.text||"");
+  const [del,setDel]=useState(false);
+  const [changeCat,setChangeCat]=useState(false);
+  const [showComments,setShowComments]=useState(false);
+  const [comments,setComments]=useState([]);
+  const [commentCount,setCommentCount]=useState(0);
+  const [newComment,setNewComment]=useState("");
+  const [sendingComment,setSendingComment]=useState(false);
+  // Reactions — backward compat: true → "heart"
+  const likes=post.likes||{};
+  const myReaction=likes[myUid]?(likes[myUid]===true?"heart":likes[myUid]):null;
+  const reactionCounts={};
+  Object.values(likes).forEach(v=>{if(!v)return;const k=v===true?"heart":v;reactionCounts[k]=(reactionCounts[k]||0)+1;});
+  const totalReactions=Object.values(reactionCounts).reduce((a,b)=>a+b,0);
+
+  // Compteur permanent — léger, juste les clés
+  useEffect(()=>{
+    const ref=db.ref(`comments/${post.id}`);
+    const handler=snap=>{setCommentCount(snap.numChildren());};
+    ref.on('value',handler);
+    return()=>ref.off('value',handler);
+  },[post.id]);
+
+  // Contenu complet — seulement quand ouvert
+  useEffect(()=>{
+    if(!showComments)return;
+    const ref=db.ref(`comments/${post.id}`);
+    const handler=snap=>{
+      const d=snap.val()||{};
+      setComments(Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>a.ts-b.ts));
+    };
+    ref.on('value',handler);
+    return()=>ref.off('value',handler);
+  },[showComments,post.id]);
+
+  const submitComment=async()=>{
+    const txt=newComment.trim();
+    if(!txt||sendingComment)return;
+    setSendingComment(true);
+    await addComment(post.id,myUid,txt);
+    setNewComment("");
+    setSendingComment(false);
+  };
+
+  const spotRef=useRef(null);
+  const [spotlight,setSpotlight]=useState(null);
+
+  const handleSpotMove=e=>{
+    const el=spotRef.current;if(!el)return;
+    const r=el.getBoundingClientRect();
+    const touch=e.touches?e.touches[0]:e;
+    setSpotlight({x:touch.clientX-r.left,y:touch.clientY-r.top,w:r.width,h:r.height});
+  };
+  const handleSpotEnd=()=>setSpotlight(null);
+
+  return h(React.Fragment,null,
+    h("div",{ref:spotRef,className:"spotlight-card",style:{background:"rgba(255,255,255,0.82)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.7)",borderRadius:20,margin:"0 16px 12px",boxShadow:spotlight?"0 8px 40px rgba(31,38,135,0.13)":"0 4px 24px rgba(31,38,135,0.07)",overflow:"hidden",position:"relative",transition:"box-shadow .25s"},
+    onMouseMove:handleSpotMove,onMouseLeave:handleSpotEnd,
+    onTouchMove:handleSpotMove,onTouchEnd:handleSpotEnd},
+    // Spotlight overlay
+    spotlight&&h("div",{style:{position:"absolute",inset:0,pointerEvents:"none",zIndex:0,borderRadius:20,background:`radial-gradient(400px circle at ${spotlight.x}px ${spotlight.y}px, rgba(29,190,170,0.08) 0%, transparent 65%)`,transition:"background .1s"}}),
+    vis&&post.photo&&h("div",{style:{width:"100%",overflow:"hidden",position:"relative",zIndex:1}},
+      h("img",{src:post.photo,style:{width:"100%",display:"block"}})
+    ),
+    !vis&&post.photo&&h("div",{style:{aspectRatio:"4/3",background:"#E8F7F2",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,position:"relative",zIndex:1}},
+      h("div",{style:{fontSize:32}},"🔒"),
+      h("div",{style:{fontSize:14,fontWeight:600,color:"#1D9E75"}},"Photo verrouillée"),
+      h("div",{style:{fontSize:12,color:"var(--text2)"}},gps?`Encore ${fmtD(d-post.radius)}`:"GPS non disponible")
+    ),
+    h("div",{style:{padding:"14px 16px",position:"relative",zIndex:1}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10}},
+        h("div",{onClick:e=>{e.stopPropagation();onAuthor(post.uid);},style:{cursor:"pointer"}},h(Av,{photo:u?.photo,pseudo:u?.pseudo||"?",sz:38,hue})),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}},
+            h("span",{onClick:e=>{e.stopPropagation();onAuthor(post.uid);},style:{fontSize:14,fontWeight:600,cursor:"pointer",color:"var(--text)"}},u?.pseudo||"Utilisateur"),
+            h(CatBdg,{catId:post.cat,cats})
+          ),
+          h("div",{style:{fontSize:12,color:"var(--text3)",marginTop:3}},fmtDate(post.ts))
+        ),
+        own?h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:"#E1F5EE",color:"#0F6E56"}},inZone?"✓ Ici":fmtD(d))
+          :h("span",{style:{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,fontWeight:500,background:inZone?"#E1F5EE":"var(--bg2)",color:inZone?"#0F6E56":"var(--text2)"}},gps?(inZone?`✓ ${fmtD(d)}`:fmtD(d)):"—"),
+        own&&h("button",{onClick:e=>{e.stopPropagation();setMenu(v=>!v);},style:{background:"transparent",border:"none",cursor:"pointer",fontSize:18,color:"var(--text3)",padding:"2px 6px",lineHeight:1,flexShrink:0}},"⋯")
+      ),
+      del&&h("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}},
+        h("span",{style:{fontSize:13,flex:1,color:"var(--text2)"}},"Supprimer ce post ?"),
+        h("button",{onClick:()=>{onDelete(post.id);setDel(false);},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--red)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Oui"),
+        h("button",{onClick:()=>setDel(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Non")
+      ),
+      changeCat&&h("div",{style:{padding:"8px 0"}},
+        h("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:8}},"Changer de catégorie :"),
+        h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          h("button",{onClick:()=>{patchPost(post.id,{cat:null});setChangeCat(false);},style:{padding:"5px 10px",fontSize:12,borderRadius:20,cursor:"pointer",background:!post.cat?"var(--bg2)":"transparent",border:!post.cat?"0.5px solid var(--border2)":"0.5px solid var(--border)",color:"var(--text)"}},"Aucune"),
+          cats.map(c=>h("button",{key:c.id,onClick:()=>{patchPost(post.id,{cat:c.id});setChangeCat(false);},style:{padding:"5px 10px",fontSize:12,borderRadius:20,cursor:"pointer",background:post.cat===c.id?"var(--bg2)":"transparent",border:post.cat===c.id?"0.5px solid var(--border2)":"0.5px solid var(--border)",color:"var(--text)"}},`${c.emoji} ${c.name}`))
+        ),
+        h("button",{onClick:()=>setChangeCat(false),style:{marginTop:8,fontSize:12,color:"var(--text3)",background:"transparent",border:"none",cursor:"pointer",padding:0}},"Annuler")
+      ),
+      ed&&h("div",null,
+        h("textarea",{value:edTxt,onChange:e=>setEdTxt(e.target.value),style:{width:"100%",minHeight:60,padding:10,fontSize:13,lineHeight:1.5,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"var(--bg2)",color:"var(--text)",fontFamily:"inherit",resize:"none",boxSizing:"border-box"}}),
+        h("div",{style:{display:"flex",gap:8,marginTop:6}},
+          h("button",{onClick:()=>{onEdit(post.id,edTxt);setEd(false);},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Sauvegarder"),
+          h("button",{onClick:()=>setEd(false),style:{padding:"6px 12px",fontSize:12,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler")
+        )
+      ),
+      !ed&&!del&&!changeCat&&(vis
+        ?h("div",null,
+            post.text&&h("p",{style:{fontSize:14,margin:"0 0 12px",lineHeight:1.65}},post.text),
+            h("div",{style:{display:"flex",alignItems:"center",gap:2,borderTop:"0.5px solid var(--border)",paddingTop:10,flexWrap:"wrap"}},
+              REACTIONS.map(r=>{
+                const isOn=myReaction===r.key;
+                const cnt=reactionCounts[r.key]||0;
+                const show=isOn||cnt>0;
+                return h("button",{key:r.key,onClick:e=>{e.stopPropagation();setReaction(post.id,myUid,isOn?null:r.key);},style:{
+                  border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:3,
+                  padding:show?"5px 8px":"5px 6px",borderRadius:16,fontSize:13,
+                  background:isOn?r.bg:"transparent",color:isOn?r.fg:"var(--text3)",
+                  fontWeight:isOn?600:400,opacity:show?1:0.45,
+                  transition:"all .15s",flexShrink:0
+                }},
+                  h("span",{style:{fontSize:15,display:"inline-block",transform:isOn?"scale(1.15)":"scale(1)",transition:"transform .2s"}},r.em),
+                  cnt>0&&h("span",{style:{fontSize:12,minWidth:6}},cnt)
+                );
+              }),
+              h("div",{style:{flex:1}}),
+              h("button",{onClick:e=>{e.stopPropagation();setShowComments(v=>!v);},style:{background:"transparent",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:5,color:showComments?"var(--green)":"var(--text3)"}},
+                h("svg",{width:17,height:17,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"})),
+                h("span",{style:{fontSize:13,fontWeight:showComments?600:400}},commentCount||"")
+              )
+            )
+          )
+        :h("div",null,
+            h("div",{style:{display:"flex",flexDirection:"column",gap:5,marginBottom:6}},[88,70,50].map(w=>h("div",{key:w,style:{height:10,background:"var(--bg2)",borderRadius:4,width:w+"%"}}))),
+            h("div",{style:{fontSize:12,color:"var(--text2)"}},gps?`🔒 Encore ${fmtD(d-post.radius)} pour débloquer`:"🔒 Activez le GPS pour débloquer")
+          )
+      ),
+      showComments&&vis&&h("div",{style:{borderTop:"0.5px solid var(--border)",paddingTop:12,marginTop:4}},
+        comments.length>0&&h("div",{style:{display:"flex",flexDirection:"column",gap:10,marginBottom:12}},
+          comments.map(c=>{
+            const cu=users[c.uid];
+            const isOwn=c.uid===myUid;
+            return h("div",{key:c.id,style:{display:"flex",gap:8,alignItems:"flex-start"}},
+              h("div",{style:{flexShrink:0}},h(Av,{photo:cu?.photo,pseudo:cu?.pseudo||"?",sz:28,hue:uidHue(c.uid)})),
+              h("div",{style:{flex:1,background:"var(--bg2)",borderRadius:12,padding:"7px 10px"}},
+                h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:2}},
+                  h("span",{style:{fontSize:12,fontWeight:600,color:"var(--text)"}},cu?.pseudo||"…"),
+                  h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                    h("span",{style:{fontSize:11,color:"var(--text3)"}},fmtDate(c.ts)),
+                    isOwn&&h("button",{onClick:()=>rmComment(post.id,c.id),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:12,color:"var(--text3)",padding:0,lineHeight:1}},"×")
+                  )
+                ),
+                h("p",{style:{fontSize:13,color:"var(--text)",margin:0,lineHeight:1.5}},c.text)
+              )
+            );
+          })
+        ),
+        comments.length===0&&h("div",{style:{fontSize:13,color:"var(--text3)",textAlign:"center",marginBottom:12}},"Sois le premier à commenter 👋"),
+        h("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+          h(Av,{photo:users[myUid]?.photo,pseudo:users[myUid]?.pseudo||"?",sz:28,hue:uidHue(myUid)}),
+          h("div",{style:{flex:1,display:"flex",gap:6,alignItems:"center",background:"var(--bg2)",borderRadius:20,padding:"6px 6px 6px 12px"}},
+            h("input",{value:newComment,onChange:e=>setNewComment(e.target.value),onKeyDown:e=>e.key==="Enter"&&!e.shiftKey&&submitComment(),placeholder:"Ajouter un commentaire…",style:{flex:1,background:"transparent",border:"none",fontSize:13,color:"var(--text)",outline:"none"}}),
+            h("button",{onClick:submitComment,disabled:!newComment.trim()||sendingComment,style:{width:30,height:30,borderRadius:"50%",border:"none",cursor:newComment.trim()?"pointer":"default",background:newComment.trim()?"var(--green)":"transparent",color:newComment.trim()?"#fff":"var(--text3)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}},
+              h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2.5},h("line",{x1:22,y1:2,x2:11,y2:13}),h("polygon",{points:"22 2 15 22 11 13 2 9 22 2"}))
+            )
+          )
+        )
+      )
+    )
+  ),
+  // ── Bottom sheet menu — rendu hors de la card (pas de overflow:hidden) ──
+  menu&&own&&h("div",{onClick:()=>setMenu(false),style:{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"flex-end",justifyContent:"center"}},
+    h("div",{onClick:e=>e.stopPropagation(),style:{width:"100%",maxWidth:460,background:"#fff",borderRadius:"20px 20px 0 0",padding:"8px 0",paddingBottom:"calc(16px + var(--sab))",boxShadow:"0 -4px 32px rgba(0,0,0,0.15)"}},
+      h("div",{style:{width:36,height:4,borderRadius:2,background:"var(--border2)",margin:"4px auto 12px"}}),
+      h("button",{onClick:()=>{setEd(true);setEdTxt(post.text||"");setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:15,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},
+        h("span",{style:{fontSize:18}},"✏️"),h("span",{style:{fontWeight:500}},"Modifier le texte")
+      ),
+      h("div",{style:{height:0.5,background:"var(--border)",margin:"0 20px"}}),
+      h("button",{onClick:()=>{setChangeCat(true);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:15,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--text)"}},
+        h("span",{style:{fontSize:18}},"🏷"),h("span",{style:{fontWeight:500}},"Changer de catégorie")
+      ),
+      h("div",{style:{height:0.5,background:"var(--border)",margin:"0 20px"}}),
+      h("button",{onClick:()=>{setDel(true);setMenu(false);},style:{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 20px",fontSize:15,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--red)"}},
+        h("span",{style:{fontSize:18}},"🗑"),h("span",{style:{fontWeight:500}},"Supprimer")
+      ),
+      h("div",{style:{height:0.5,background:"var(--border)",margin:"0 20px"}}),
+      h("button",{onClick:()=>setMenu(false),style:{display:"flex",alignItems:"center",justifyContent:"center",width:"100%",padding:"14px 20px",fontSize:15,fontWeight:600,background:"transparent",border:"none",cursor:"pointer",color:"var(--text2)"}},
+        "Annuler"
+      )
+    )
+  )
+  );
+}
+
+// ── CROP TOOL ─────────────────────────────────────────────
+const FORMATS=[{name:"Carré",w:1,h:1,label:"1:1"},{name:"Paysage",w:4,h:3,label:"4:3"},{name:"Cinéma",w:16,h:9,label:"16:9"},{name:"Portrait",w:4,h:5,label:"4:5"},{name:"Story",w:9,h:16,label:"9:16"}];
+function CropTool({src,onConfirm,onCancel}){
+  const [fmt,setFmt]=useState(FORMATS[0]);
+  const [zoom,setZoom]=useState(1);
+  const [flipped,setFlipped]=useState(false);
+  // offX/offY = décalage en pixels naturels de l'image par rapport au coin haut-gauche du cadre
+  const [off,setOff]=useState({x:0,y:0});
+  const imgRef=useRef(null);
+  const outRef=useRef(null);
+  const dragRef=useRef(null);
+  const pinchRef=useRef(null);
+  const ctnRef=useRef(null);
+  const ratio=fmt.w/fmt.h;
+  const imgLoaded=useRef(false);
+
+  // Quand l'image charge ou le format change, on recalcule le centrage
+  const recenter=useCallback((z)=>{
+    const img=imgRef.current;if(!img||!img.naturalWidth)return{x:0,y:0};
+    const nW=img.naturalWidth,nH=img.naturalHeight;
+    const iR=nW/nH;
+    // Taille couverte par le cadre en pixels naturels (à zoom=1)
+    let covW,covH;
+    if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+    // Avec zoom, la zone visible est réduite
+    const visW=covW/z,visH=covH/z;
+    // Centre l'image
+    return {x:(nW-visW)/2, y:(nH-visH)/2};
+  },[ratio]);
+
+  // Init quand image charge
+  useEffect(()=>{
+    const img=imgRef.current;if(!img)return;
+    const onLoad=()=>{imgLoaded.current=true;setOff(recenter(1));setZoom(1);};
+    if(img.complete&&img.naturalWidth)onLoad();
+    else img.addEventListener('load',onLoad);
+    return()=>img.removeEventListener('load',onLoad);
+  },[src]);
+
+  // Reset on format change
+  const changeFmt=f=>{setFmt(f);setZoom(1);setTimeout(()=>setOff(recenter(1)),0);};
+
+  // Convertir pixel écran → pixel naturel
+  const screenToNat=useCallback((dxScreen,dyScreen)=>{
+    const el=ctnRef.current;if(!el)return{dx:0,dy:0};
+    const r=el.getBoundingClientRect();
+    const img=imgRef.current;if(!img||!img.naturalWidth)return{dx:0,dy:0};
+    const nW=img.naturalWidth,nH=img.naturalHeight;
+    const iR=nW/nH;
+    let covW,covH;
+    if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+    const natPerPxX=(covW/zoom)/r.width;
+    const natPerPxY=(covH/zoom)/r.height;
+    return{dx:dxScreen*natPerPxX, dy:dyScreen*natPerPxY};
+  },[ratio,zoom]);
+
+  // Pan mouse
+  const handleMD=e=>{e.preventDefault();dragRef.current={sx:e.clientX,sy:e.clientY,ox:off.x,oy:off.y};};
+  const handleMM=useCallback(e=>{
+    if(!dragRef.current)return;
+    const {dx,dy}=screenToNat(e.clientX-dragRef.current.sx,e.clientY-dragRef.current.sy);
+    const img=imgRef.current;if(!img||!img.naturalWidth)return;
+    const nW=img.naturalWidth,nH=img.naturalHeight;
+    const iR=nW/nH;
+    let covW,covH;
+    if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+    const visW=covW/zoom,visH=covH/zoom;
+    const maxX=nW-visW,maxY=nH-visH;
+    const fdx=flipped?-dx:dx;
+    const nx=Math.max(0,Math.min(maxX,dragRef.current.ox-fdx));
+    const ny=Math.max(0,Math.min(maxY,dragRef.current.oy-dy));
+    setOff({x:nx,y:ny});
+  },[zoom,ratio,screenToNat,flipped]);
+  const handleMU=()=>{dragRef.current=null;};
+  useEffect(()=>{window.addEventListener('mousemove',handleMM);window.addEventListener('mouseup',handleMU);return()=>{window.removeEventListener('mousemove',handleMM);window.removeEventListener('mouseup',handleMU);};},[handleMM]);
+
+  // Pan + Pinch touch
+  const handleTS=e=>{
+    e.preventDefault();
+    if(e.touches.length===2){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      pinchRef.current={startDist:d,startZoom:zoom,ox:off.x,oy:off.y};
+      dragRef.current=null;
+    }else if(e.touches.length===1){
+      dragRef.current={sx:e.touches[0].clientX,sy:e.touches[0].clientY,ox:off.x,oy:off.y};
+      pinchRef.current=null;
+    }
+  };
+  const handleTM=e=>{
+    e.preventDefault();
+    if(e.touches.length===2&&pinchRef.current){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      const nz=Math.max(1,Math.min(3,pinchRef.current.startZoom*(d/pinchRef.current.startDist)));
+      setZoom(nz);
+      // Reclamp avec nouveau zoom
+      const img=imgRef.current;if(img&&img.naturalWidth){
+        const nW=img.naturalWidth,nH=img.naturalHeight,iR=nW/nH;
+        let covW,covH;if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+        const visW=covW/nz,visH=covH/nz;
+        setOff(prev=>({x:Math.max(0,Math.min(nW-visW,prev.x)),y:Math.max(0,Math.min(nH-visH,prev.y))}));
+      }
+    }else if(e.touches.length===1&&dragRef.current){
+      const {dx,dy}=screenToNat(e.touches[0].clientX-dragRef.current.sx,e.touches[0].clientY-dragRef.current.sy);
+      const img=imgRef.current;if(!img||!img.naturalWidth)return;
+      const nW=img.naturalWidth,nH=img.naturalHeight,iR=nW/nH;
+      let covW,covH;if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+      const visW=covW/zoom,visH=covH/zoom;
+      const maxX=nW-visW,maxY=nH-visH;
+      const fdx=flipped?-dx:dx;
+      setOff({x:Math.max(0,Math.min(maxX,dragRef.current.ox-fdx)),y:Math.max(0,Math.min(maxY,dragRef.current.oy-dy))});
+    }
+  };
+  const handleTE=()=>{dragRef.current=null;pinchRef.current=null;};
+
+  // Dessiner la preview sur le canvas visible
+  const drawPreview=useCallback(()=>{
+    const cv=ctnRef.current;const img=imgRef.current;
+    if(!cv||!img||!img.naturalWidth)return;
+    const ctx=cv.getContext('2d');
+    const dpr=window.devicePixelRatio||1;
+    const w=cv.clientWidth,h=cv.clientHeight;
+    cv.width=w*dpr;cv.height=h*dpr;
+    ctx.scale(dpr,dpr);
+    ctx.clearRect(0,0,w,h);
+    const nW=img.naturalWidth,nH=img.naturalHeight;
+    const iR=nW/nH;
+    let covW,covH;
+    if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+    const visW=covW/zoom,visH=covH/zoom;
+    ctx.save();
+    if(flipped){ctx.translate(w,0);ctx.scale(-1,1);}
+    ctx.drawImage(img,off.x,off.y,visW,visH,0,0,w,h);
+    ctx.restore();
+  },[off,zoom,flipped,ratio]);
+
+  useEffect(()=>{drawPreview();},[drawPreview,fmt]);
+
+  // Confirm — export final
+  const confirm=()=>{
+    const img=imgRef.current;if(!img)return;
+    const nW=img.naturalWidth,nH=img.naturalHeight;
+    const iR=nW/nH;
+    let covW,covH;
+    if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+    const visW=covW/zoom,visH=covH/zoom;
+    const oW=800,oH=Math.round(oW/ratio);
+    const cv=outRef.current;cv.width=oW;cv.height=oH;
+    const ctx=cv.getContext('2d');
+    if(flipped){ctx.translate(oW,0);ctx.scale(-1,1);}
+    ctx.drawImage(img,off.x,off.y,visW,visH,0,0,oW,oH);
+    onConfirm(cv.toDataURL('image/jpeg',0.88));
+  };
+
+  return h("div",{style:{touchAction:"none"}},
+    h("img",{ref:imgRef,src,style:{display:"none"},crossOrigin:"anonymous"}),
+    h("canvas",{ref:outRef,style:{display:"none"}}),
+    h("div",{style:{fontSize:13,fontWeight:500,marginBottom:10}},"Format"),
+    h("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},FORMATS.map(f=>h("button",{key:f.name,onClick:()=>changeFmt(f),style:{padding:"6px 10px",fontSize:12,borderRadius:"var(--r)",cursor:"pointer",background:fmt.name===f.name?"var(--text)":"var(--bg2)",color:fmt.name===f.name?"#fff":"var(--text)",border:"0.5px solid var(--border)",fontWeight:fmt.name===f.name?500:400}},h("div",{style:{fontSize:11,fontWeight:500}},f.label),h("div",{style:{fontSize:10,opacity:0.7,marginTop:1}},f.name)))),
+    h("canvas",{ref:ctnRef,style:{width:"100%",aspectRatio:`${fmt.w}/${fmt.h}`,borderRadius:"var(--r)",cursor:"grab",userSelect:"none",background:"#000",touchAction:"none",display:"block"},
+      onMouseDown:handleMD,
+      onTouchStart:handleTS,
+      onTouchMove:handleTM,
+      onTouchEnd:handleTE}),
+    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginTop:8}},
+      h("button",{onClick:()=>setFlipped(v=>!v),style:{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",fontSize:12,fontWeight:500,background:flipped?"var(--gbg)":"var(--bg2)",color:flipped?"var(--green)":"var(--text2)",border:flipped?"1px solid var(--green)":"0.5px solid var(--border)",borderRadius:20,cursor:"pointer"}},
+        h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("path",{d:"M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 3v18"})),
+        flipped?"Miroir ✓":"Miroir"
+      ),
+      h("span",{style:{fontSize:11,color:"var(--text3)"}},"Glisse · Pince pour zoomer")
+    ),
+    zoom>1&&h("div",{style:{display:"flex",alignItems:"center",gap:10,marginTop:8,padding:"0 4px"}},
+      h("span",{style:{fontSize:11,color:"var(--text3)"}},"−"),
+      h("input",{type:"range",min:100,max:300,value:Math.round(zoom*100),onChange:e=>{
+        const nz=Number(e.target.value)/100;setZoom(nz);
+        const img=imgRef.current;if(img&&img.naturalWidth){
+          const nW=img.naturalWidth,nH=img.naturalHeight,iR=nW/nH;
+          let covW,covH;if(iR>ratio){covH=nH;covW=covH*ratio;}else{covW=nW;covH=covW/ratio;}
+          const visW=covW/nz,visH=covH/nz;
+          setOff(prev=>({x:Math.max(0,Math.min(nW-visW,prev.x)),y:Math.max(0,Math.min(nH-visH,prev.y))}));
+        }
+      },style:{flex:1,accentColor:"var(--green)"}}),
+      h("span",{style:{fontSize:11,color:"var(--text3)"}},"+"),
+      h("button",{onClick:()=>{setZoom(1);setOff(recenter(1));},style:{fontSize:11,color:"var(--green)",background:"transparent",border:"none",cursor:"pointer",fontWeight:600}},"Reset")
+    ),
+    h("div",{style:{display:"flex",gap:8,marginTop:12}},
+      h("button",{onClick:onCancel,style:{flex:1,padding:"10px",fontSize:13,background:"transparent",border:"0.5px solid var(--border)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--text2)"}},"Annuler"),
+      h("button",{onClick:confirm,style:{flex:2,padding:"10px",fontSize:13,fontWeight:500,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--r)",cursor:"pointer"}},"Appliquer")
+    )
+  );
+}
+
+// ── RADIUS PREVIEW MAP ─────────────────────────────────────
+// Copie exacte du pattern ZoneMap qui fonctionne sur iOS Safari
+function RadiusMap({gps,radius,height=140,onMapReady=null}){
+  const mapRef=useRef(null);
+  const leafRef=useRef(null);
+  const circleRef=useRef(null);
+
+  useEffect(()=>{
+    if(!mapRef.current||leafRef.current||!gps)return;
+    const zoom=radius<150?17:radius<400?16:radius<1000?15:radius<2500?14:13;
+    // Carte identique à ZoneMap : zoomControl désactivé
+    const map=L.map(mapRef.current,{zoomControl:false,attributionControl:false}).setView([gps.lat,gps.lng],zoom);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
+    const icon=L.divIcon({className:'zone-gps-marker',html:'<style>.zsr{position:absolute;width:30px;height:30px;border-radius:50%;border:2px solid #6C63FF;animation:zsonar 2s ease-out infinite}.zsr2{animation-delay:1s}@keyframes zsonar{0%{transform:scale(0.4);opacity:0.9}100%{transform:scale(2.2);opacity:0}}</style><div style="width:50px;height:50px;position:relative;display:flex;align-items:center;justify-content:center;"><div class="zsr"></div><div class="zsr zsr2"></div><div style="width:13px;height:13px;border-radius:50%;background:#6C63FF;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(108,99,255,0.8);position:relative;z-index:2;flex-shrink:0;"></div></div>',iconSize:[50,50],iconAnchor:[25,25]});
+    L.marker([gps.lat,gps.lng],{icon,interactive:false}).addTo(map);
+    circleRef.current=L.circle([gps.lat,gps.lng],{radius,color:"#1D9E75",weight:2,fillColor:"#1D9E75",fillOpacity:0.13}).addTo(map);
+    leafRef.current=map;
+    if(onMapReady)onMapReady(map);
+    return()=>{map.remove();leafRef.current=null;circleRef.current=null;};
+  },[gps?.lat,gps?.lng]);
+
+  // Mise à jour du cercle quand radius change — sans forcer le recentrage
+  const lastFitRef=useRef(radius);
+  useEffect(()=>{
+    if(!leafRef.current||!circleRef.current||!gps)return;
+    circleRef.current.setRadius(radius);
+    // fitBounds seulement si le rayon a beaucoup changé (> 30%) ou si le cercle sort de la vue
+    const bounds=circleRef.current.getBounds();
+    const mapBounds=leafRef.current.getBounds();
+    const circleOutside=!mapBounds.contains(bounds);
+    const bigChange=Math.abs(radius-lastFitRef.current)/lastFitRef.current>0.3;
+    if(circleOutside||bigChange){
+      leafRef.current.fitBounds(bounds,{padding:[30,30],animate:true,duration:0.3});
+      lastFitRef.current=radius;
+    }
+  },[radius]);
+
+  if(!gps)return h("div",{style:{height,borderRadius:"var(--rl)",background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--text3)"}},"GPS requis");
+  return h("div",{ref:mapRef,style:{height,borderRadius:"var(--rl)",overflow:"hidden",border:"0.5px solid var(--border)"}});
+}
+
+
+// ── EXIF GPS MANUEL ───────────────────────────────────────
+function readExifGpsManual(file){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const buf=e.target.result;
+        const view=new DataView(buf);
+        // Vérifie que c'est bien un JPEG
+        if(view.getUint16(0)!==0xFFD8){resolve(null);return;}
+        let offset=2;
+        while(offset<buf.byteLength-2){
+          const marker=view.getUint16(offset);
+          offset+=2;
+          if(marker===0xFFE1){// APP1 = EXIF
+            const len=view.getUint16(offset);
+            const exifStr=String.fromCharCode(...new Uint8Array(buf,offset+2,4));
+            if(exifStr==="Exif"){
+              const tiffStart=offset+8;
+              const endian=view.getUint16(tiffStart);
+              const le=endian===0x4949;
+              const getU16=(o)=>view.getUint16(tiffStart+o,le);
+              const getU32=(o)=>view.getUint32(tiffStart+o,le);
+              // IFD0
+              const ifd0=getU32(4);
+              const ifd0Count=getU16(ifd0);
+              let gpsOffset=null;
+              for(let i=0;i<ifd0Count;i++){
+                const tag=getU16(ifd0+2+i*12);
+                if(tag===0x8825){gpsOffset=getU32(ifd0+2+i*12+8);break;}
+              }
+              if(gpsOffset!==null){
+                const gpsCount=getU16(gpsOffset);
+                let lat=null,lng=null,latRef="N",lngRef="E";
+                for(let i=0;i<gpsCount;i++){
+                  const tag=getU16(gpsOffset+2+i*12);
+                  const valOff=getU32(gpsOffset+2+i*12+8);
+                  if(tag===1) latRef=String.fromCharCode(view.getUint8(tiffStart+valOff));
+                  if(tag===3) lngRef=String.fromCharCode(view.getUint8(tiffStart+valOff));
+                  if(tag===2||tag===4){
+                    const toD=(off)=>{
+                      const d=getU32(off)/getU32(off+4);
+                      const m=getU32(off+8)/getU32(off+12);
+                      const s=getU32(off+16)/getU32(off+20);
+                      return d+m/60+s/3600;
+                    };
+                    if(tag===2) lat=toD(tiffStart+valOff);
+                    if(tag===4) lng=toD(tiffStart+valOff);
+                  }
+                }
+                if(lat!==null&&lng!==null){
+                  resolve({lat:latRef==="S"?-lat:lat,lng:lngRef==="W"?-lng:lng});
+                  return;
+                }
+              }
+            }
+            offset+=len;
+          } else if((marker&0xFF00)===0xFF00){
+            offset+=view.getUint16(offset);
+          } else break;
+        }
+        resolve(null);
+      }catch(e){resolve(null);}
+    };
+    reader.onerror=()=>resolve(null);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── CARTE ZONE UNIQUE (pour l'étape de définition du rayon) ─
+
+
+// ── PUBLICATION ───────────────────────────────────────────
+function PublishScreen({myUid,gps,cats,onBack,onPostDone}){
+  const [step,setStep]=useState("form"); // form | crop | zone
+  const [rawPhoto,setRawPhoto]=useState(null);
+  const [photo,setPhoto]=useState(null);
+  const [photoGps,setPhotoGps]=useState(null);
+  const [txt,setTxt]=useState("");
+  const [rad,setRad]=useState(300);
+  const [zoneConfirmed,setZoneConfirmed]=useState(false);
+  const [sel,setSel]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const fileRef=useRef(null);
+  const sC=cats.find(c=>c.id===sel);
+  const lb=sC?aLbl(sC.access):null;
+  const postGps=photoGps||gps;
+  const fR=m=>m>=1000?`${(m/1000).toFixed(1)} km`:`${m} m`;
+  // Peut aller à l'étape zone : faut au moins une photo OU du texte + GPS
+  const canGoZone=!!(txt.trim()||photo)&&!!postGps;
+  // Peut publier : contenu + GPS + zone confirmée
+  const canPost=canGoZone&&zoneConfirmed;
+
+  const handleFile=async f=>{
+    if(!f||!f.type.startsWith("image/"))return;
+    let exifGps=null;
+    try{
+      if(window.Exifr){try{const r=await window.Exifr.gps(f);if(r?.latitude&&r?.longitude)exifGps={lat:r.latitude,lng:r.longitude};}catch(e){}}
+      if(!exifGps)exifGps=await readExifGpsManual(f);
+    }catch(e){}
+    setPhotoGps(exifGps);
+    const r=new FileReader();
+    r.onload=e=>{setRawPhoto(e.target.result);setStep("crop");};
+    r.readAsDataURL(f);
+  };
+
+  const doPost=async()=>{
+    if(!canPost||saving)return;
+    setSaving(true);
+    let finalPhoto=photo;
+    if(photo){
+      const compressed=await new Promise(ok=>{const i=new Image();i.onload=()=>{const MAX=800,sc=Math.min(1,MAX/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=Math.round(i.width*sc);c.height=Math.round(i.height*sc);c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.6));};i.src=photo;});
+      finalPhoto=compressed;
+    }
+    await pushPost(myUid,{text:txt.trim(),photo:finalPhoto||null,lat:postGps.lat,lng:postGps.lng,radius:rad,cat:sel,uid:myUid});
+    // Mise à jour du streak
+    const newCount=await updateStreak(myUid);
+    setSaving(false);
+    if(onPostDone)onPostDone(newCount);
+    onBack();
+  };
+
+  const BackBtn=({onClick})=>h("button",{onClick,style:{width:40,height:40,borderRadius:12,background:"#fff",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--shadow)",flexShrink:0}},
+    h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+  );
+
+  // ── ÉTAPE RECADRAGE ──
+  if(step==="crop"&&rawPhoto) return h("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,rgba(29,190,170,0.06) 0%,rgba(155,111,255,0.06) 100%)",padding:"0 16px 40px"}},
+    h("div",{style:{paddingTop:"calc(52px + var(--sat))",display:"flex",alignItems:"center",gap:14,marginBottom:20}},
+      h(BackBtn,{onClick:()=>{setRawPhoto(null);setStep("form");}}),
+      h("span",{style:{fontSize:17,fontWeight:700}},"Recadrer la photo")
+    ),
+    h(CropTool,{src:rawPhoto,onConfirm:cropped=>{setPhoto(cropped);setStep("form");},onCancel:()=>{setRawPhoto(null);setStep("form");}})
+  );
+
+  // ── ÉTAPE 2 : ZONE ──
+  if(step==="zone") return h("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,rgba(29,190,170,0.06) 0%,rgba(155,111,255,0.06) 100%)"}},
+    h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.6)",padding:"calc(52px + var(--sat)) 16px 14px",display:"flex",alignItems:"center",gap:14}},
+      h(BackBtn,{onClick:()=>setStep("form")}),
+      h("span",{style:{fontSize:17,fontWeight:700,flex:1}},"Définir la zone"),
+      h("span",{style:{fontSize:15,fontWeight:800,color:"var(--green)"}},fR(rad))
+    ),
+    h("div",{style:{padding:16}},
+      h(RadiusMap,{gps:postGps,radius:rad,height:340}),
+      h("div",{style:{marginTop:16,background:"#fff",borderRadius:"var(--rl)",padding:"16px",boxShadow:"var(--shadow)"}},
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:10,fontSize:13,fontWeight:600}},
+          h("span",null,"Rayon de visibilité"),
+          h("span",{style:{color:"var(--green)"}},fR(rad))
+        ),
+        h("input",{type:"range",min:50,max:5000,step:50,value:rad,
+          onChange:e=>setRad(Number(e.target.value)),
+          style:{width:"100%",accentColor:"var(--green)"}}),
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:"var(--text3)"}},
+          h("span",null,"50 m"),h("span",null,"2,5 km"),h("span",null,"5 km")
+        )
+      ),
+      h("button",{onClick:()=>{setZoneConfirmed(true);setStep("form");},style:{
+        marginTop:16,width:"100%",padding:16,fontSize:15,fontWeight:700,
+        background:"var(--green)",color:"#fff",border:"none",
+        borderRadius:"var(--rl)",cursor:"pointer",
+        boxShadow:"0 4px 20px rgba(29,158,117,0.35)"
+      }},"✓ Confirmer cette zone")
+    )
+  );
+
+  // ── ÉTAPE 1 : FORMULAIRE ──
+  return h("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,rgba(29,190,170,0.06) 0%,rgba(155,111,255,0.06) 100%)",display:"flex",flexDirection:"column"}},
+    // Header
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.6)",padding:"0 16px"}},
+      h("div",{style:{paddingTop:"calc(52px + var(--sat))",paddingBottom:14,display:"flex",alignItems:"center",gap:14}},
+        h(BackBtn,{onClick:onBack}),
+        h("span",{style:{fontSize:17,fontWeight:700,flex:1}},"Nouveau post"),
+        gps?h("span",{style:{fontSize:11,color:"var(--green)",fontWeight:500}},"📍 GPS actif")
+          :h("span",{style:{fontSize:11,color:"#BA7517"}},"⚠️ Sans GPS")
+      )
+    ),
+
+    h("div",{style:{flex:1,padding:"16px 16px 0"}},
+      // Photo
+      photo
+        ?h("div",{style:{position:"relative",marginBottom:14,borderRadius:"var(--rl)",overflow:"hidden"}},
+            h("img",{src:photo,style:{width:"100%",display:"block",aspectRatio:"4/3",objectFit:"cover"}}),
+            h("div",{style:{position:"absolute",top:10,left:10}},
+              photoGps
+                ?h("div",{style:{background:"rgba(29,158,117,0.88)",padding:"5px 11px",borderRadius:20,fontSize:12,color:"#fff",fontWeight:600}},"📍 GPS de la photo")
+                :h("div",{style:{background:"rgba(0,0,0,0.55)",padding:"5px 11px",borderRadius:20,fontSize:12,color:"#fff"}},"📍 Ta position actuelle")
+            ),
+            h("div",{style:{position:"absolute",top:10,right:10,display:"flex",gap:8}},
+              h("button",{onClick:()=>{setRawPhoto(photo);setStep("crop");},style:{padding:"6px 12px",fontSize:12,fontWeight:500,background:"rgba(255,255,255,0.9)",border:"none",borderRadius:20,cursor:"pointer",color:"var(--text)"}},"Recadrer"),
+              h("button",{onClick:()=>{setPhoto(null);setRawPhoto(null);setPhotoGps(null);},style:{width:32,height:32,background:"rgba(0,0,0,0.55)",border:"none",borderRadius:"50%",cursor:"pointer",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}},"×")
+            )
+          )
+        :h("div",{style:{marginBottom:14}},
+            h("div",{onClick:()=>fileRef.current?.click(),style:{border:"2px dashed var(--border2)",borderRadius:"var(--rl)",padding:"36px 16px",textAlign:"center",cursor:"pointer",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",gap:10,boxShadow:"var(--shadow)"}},
+              h("div",{style:{width:60,height:60,borderRadius:"50%",background:"var(--gbg)",display:"flex",alignItems:"center",justifyContent:"center"}},
+                h("svg",{width:26,height:26,viewBox:"0 0 24 24",fill:"none",stroke:"var(--green)",strokeWidth:2},h("rect",{x:3,y:3,width:18,height:18,rx:2}),h("circle",{cx:12,cy:12,r:3}),h("path",{d:"M3 9h18"}))
+              ),
+              h("div",null,
+                h("div",{style:{fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:3}},"Prendre une photo"),
+                h("div",{style:{fontSize:12,color:"var(--text3)"}},"Optionnel — tu peux aussi poster du texte")
+              ),
+              h("input",{ref:fileRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+            )
+          ),
+
+      // Texte
+      h("textarea",{value:txt,onChange:e=>setTxt(e.target.value),placeholder:"Que se passe-t-il ici ?",style:{width:"100%",minHeight:80,padding:14,fontSize:14,lineHeight:1.6,border:"none",borderRadius:"var(--rl)",background:"#fff",color:"var(--text)",fontFamily:"inherit",resize:"none",boxSizing:"border-box",boxShadow:"var(--shadow)"}}),
+
+      // Catégorie
+      h("div",{style:{marginTop:14,background:"#fff",borderRadius:"var(--rl)",padding:"14px 16px",boxShadow:"var(--shadow)"}},
+        h("div",{style:{fontSize:13,fontWeight:600,marginBottom:10}},"Catégorie"),
+        h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          h("button",{onClick:()=>setSel(null),style:{padding:"6px 14px",fontSize:12,borderRadius:20,cursor:"pointer",background:!sel?"var(--gbg)":"var(--bg2)",border:"none",fontWeight:!sel?600:400,color:!sel?"var(--green)":"var(--text2)"}},"Aucune"),
+          cats.map(c=>h("button",{key:c.id,onClick:()=>setSel(sel===c.id?null:c.id),style:{padding:"6px 14px",fontSize:12,borderRadius:20,cursor:"pointer",background:sel===c.id?"var(--gbg)":"var(--bg2)",border:"none",fontWeight:sel===c.id?600:400,color:sel===c.id?"var(--green)":"var(--text2)"}},`${c.emoji} ${c.name}`))
+        ),
+        lb&&h("div",{style:{marginTop:10,fontSize:12,padding:"6px 12px",background:lb.bg,color:lb.c,borderRadius:"var(--r)",display:"inline-flex",alignItems:"center",gap:4}},`${lb.icon} Visible : ${lb.label}`)
+      ),
+
+      // Zone confirmée — badge récap
+      zoneConfirmed&&h("div",{style:{marginTop:14,background:"var(--gbg)",borderRadius:"var(--rl)",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"var(--shadow)"}},
+        h("div",null,
+          h("div",{style:{fontSize:13,fontWeight:700,color:"var(--green)"}},"✓ Zone définie"),
+          h("div",{style:{fontSize:12,color:"var(--gtxt)",marginTop:2}},`Rayon de ${fR(rad)} autour de toi`)
+        ),
+        h("button",{onClick:()=>setStep("zone"),style:{padding:"7px 14px",fontSize:12,fontWeight:600,background:"#fff",border:"none",borderRadius:20,cursor:"pointer",color:"var(--green)",boxShadow:"var(--shadow)"}},"Modifier")
+      ),
+
+      h("div",{style:{height:110}})
+    ),
+
+    // Boutons bas fixes
+    h("div",{style:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:460,padding:"12px 16px",paddingBottom:"calc(28px + var(--sab))",background:"rgba(255,255,255,0.82)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid rgba(255,255,255,0.6)",zIndex:10,display:"flex",flexDirection:"column",gap:8}},
+      // Étape 1 : contenu manquant
+      !canGoZone&&h("button",{disabled:true,style:{width:"100%",padding:14,fontSize:14,fontWeight:600,background:"var(--bg2)",color:"var(--text3)",border:"none",borderRadius:"var(--rl)",cursor:"default"}},"Ajoute une photo ou du texte pour continuer"),
+      // Étape 2 : définir la zone (si contenu ok mais zone pas encore confirmée)
+      canGoZone&&!zoneConfirmed&&h("button",{onClick:()=>setStep("zone"),style:{width:"100%",padding:16,fontSize:15,fontWeight:700,background:"var(--text)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer"}},"Définir la zone →"),
+      // Étape 3 : publier (si zone confirmée)
+      canGoZone&&zoneConfirmed&&h("div",{style:{display:"flex",gap:10}},
+        h(Ripple,{onClick:()=>setStep("zone"),style:{padding:"16px 18px",fontSize:13,fontWeight:600,background:"var(--bg2)",color:"var(--text)",border:"none",borderRadius:"var(--rl)",cursor:"pointer",whiteSpace:"nowrap"}},`📍 ${fR(rad)}`),
+        h(Ripple,{onClick:doPost,disabled:saving,style:{flex:1,padding:16,fontSize:15,fontWeight:700,background:"var(--green)",color:"#fff",border:"none",borderRadius:"var(--rl)",cursor:"pointer",boxShadow:"0 4px 20px rgba(29,158,117,0.35)"}},saving?"Publication…":"Publier 🚀")
+      )
+    )
+  );
+}
+
+// ── RECHERCHE ─────────────────────────────────────────────
+function SearchScreen({users,myUid,onGoProfile}){
+  const [q,setQ]=useState("");
+  const res=useMemo(()=>{
+    const entries=Object.entries(users).filter(([uid,u])=>uid!==myUid&&u?.pseudo);
+    if(!q.trim()) return entries.slice(0,8); // show suggestions when empty
+    const s=q.toLowerCase().trim();
+    return entries
+      .map(([uid,u])=>{
+        const pseudo=(u.pseudo||"").toLowerCase();
+        const bio=(u.bio||"").toLowerCase();
+        const ville=(u.ville||"").toLowerCase();
+        // score: starts-with = best, contains = ok
+        let score=0;
+        if(pseudo===s)score=100;
+        else if(pseudo.startsWith(s))score=80;
+        else if(pseudo.includes(s))score=60;
+        else if(bio.includes(s)||ville.includes(s))score=20;
+        return{uid,u,score};
+      })
+      .filter(x=>x.score>0)
+      .sort((a,b)=>b.score-a.score)
+      .map(({uid,u})=>[uid,u]);
+  },[q,users,myUid]);
+
+  return h("div",{style:{paddingBottom:"calc(100px + var(--sab))",minHeight:"100vh"}},
+    // Header search — glass
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid rgba(255,255,255,0.6)",padding:"calc(var(--sat) + 14px) 16px 12px",display:"flex",alignItems:"center",gap:12}},
+      h("div",{style:{flex:1,position:"relative"}},
+        h("div",{style:{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}},
+          h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text-light)",strokeWidth:2.5},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
+        ),
+        h("input",{value:q,onChange:e=>setQ(e.target.value),placeholder:"Chercher un profil…",style:{width:"100%",padding:"13px 14px 13px 42px",fontSize:14,border:"1px solid rgba(255,255,255,0.8)",borderRadius:24,background:"rgba(255,255,255,0.75)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",color:"var(--zone-text)",boxSizing:"border-box",boxShadow:"0 8px 32px rgba(31,38,135,0.08)"}}),
+        q&&h("button",{onClick:()=>setQ(""),style:{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer",width:22,height:22,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"var(--zone-text-light)"}},"×")
+      )
+    ),
+    // Empty state — glass
+    !q.trim()&&h("div",{style:{margin:"12px 16px 0",background:"rgba(255,255,255,0.7)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.8)",borderRadius:24,padding:"40px 24px",textAlign:"center",boxShadow:"0 8px 32px rgba(31,38,135,0.08)"}},
+      h("div",{style:{width:64,height:64,borderRadius:"50%",background:"linear-gradient(135deg,rgba(155,111,255,0.15),rgba(155,111,255,0.25))",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}},
+        h("svg",{width:28,height:28,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-purple)",strokeWidth:2},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
+      ),
+      h("div",{style:{fontSize:17,fontWeight:700,color:"var(--zone-text)",marginBottom:6}},"Recherche de profils"),
+      h("div",{style:{fontSize:14,color:"var(--zone-text-light)"}},"Tape un nom pour trouver quelqu'un")
+    ),
+    // No results — glass
+    q.trim()&&res.length===0&&h("div",{style:{margin:"12px 16px 0",background:"rgba(255,255,255,0.7)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.8)",borderRadius:24,padding:"32px 24px",textAlign:"center",boxShadow:"0 8px 32px rgba(31,38,135,0.08)"}},
+      h("div",{style:{fontSize:14,color:"var(--zone-text-light)"}},"Aucun résultat pour \"",h("strong",null,q),"\"")
+    ),
+    // Results — glass cards
+    res.length>0&&h("div",{style:{padding:"0 16px",display:"flex",flexDirection:"column",gap:8}},
+      res.map(([uid,u])=>h("div",{key:uid,onClick:()=>onGoProfile(uid),style:{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"rgba(255,255,255,0.75)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.8)",borderRadius:20,cursor:"pointer",boxShadow:"0 4px 20px rgba(31,38,135,0.06)",transition:"transform .15s"}},
+        h(Av,{photo:u.photo,pseudo:u.pseudo,sz:46,hue:uidHue(uid)}),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{fontSize:15,fontWeight:600,color:"var(--zone-text)"}},u.pseudo),
+          u.bio&&h("div",{style:{fontSize:13,color:"var(--zone-text-light)",marginTop:2}},u.bio),
+          u.ville&&h("div",{style:{fontSize:12,color:"var(--zone-text-light)",marginTop:2}},
+            h("span",{style:{marginRight:4}},"📍"),u.ville
+          )
+        ),
+        h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text-light)",strokeWidth:2},h("polyline",{points:"9 18 15 12 9 6"}))
+      ))
+    )
+  );
+}
+
+// ── ACCÈS CATÉGORIE ───────────────────────────────────────
+function AccessScreen({cat,myUid,users,onBack}){
+  // State local pour l'affichage — mis à jour immédiatement au click,
+  // sans attendre Firebase. Initialisé depuis cat.access.
+  const initMode=()=>{
+    if(cat.access==="private")return "private";
+    if(typeof cat.access==="object")return "custom";
+    return "public";
+  };
+  const [mode,setModeLocal]=useState(initMode);
+  // Sync si cat change depuis Firebase (autre device, etc.)
+  useEffect(()=>{ setModeLocal(initMode()); },[cat.access]);
+
+  const isPub=mode==="public";
+  const isPrv=mode==="private";
+  const isCst=mode==="custom";
+  // customSel depuis Firebase (source de vérité)
+  const customSel=typeof cat.access==="object"?Object.keys(cat.access?.custom||{}):[];
+
+  const followers=Object.entries(users)
+    .filter(([uid,u])=>uid!==myUid&&u?.pseudo)
+    .sort(([ua,a],[ub,b])=>{
+      const aF=!!(a?.following&&a.following[myUid]);
+      const bF=!!(b?.following&&b.following[myUid]);
+      if(aF&&!bF)return -1; if(!aF&&bF)return 1;
+      return (a?.pseudo||"").localeCompare(b?.pseudo||"");
+    })
+    .map(([uid,u])=>({uid,u,isFollower:!!(u?.following&&u.following[myUid])}));
+
+  const setMode=m=>{
+    setModeLocal(m); // mise à jour locale immédiate → liste s'affiche sans délai
+    const cur=typeof cat.access==="object"?cat.access.custom:{};
+    const acc=m==="public"?"public":m==="private"?"private":{custom:cur||{}};
+    saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:acc});
+  };
+  const tog=uid=>{
+    const cur={...(typeof cat.access==="object"?cat.access.custom:{})};
+    if(cur[uid])delete cur[uid];else cur[uid]=true;
+    saveCat(myUid,cat.id,{name:cat.name,emoji:cat.emoji,access:{custom:cur}});
+  };
+
+  const modes=[
+    {v:"public",icon:"🔓",l:"Tous mes abonnés",desc:"Visible par tous ceux qui te suivent"},
+    {v:"custom",icon:"👥",l:"Sélection",desc:"Tu choisis qui peut voir"},
+    {v:"private",icon:"🔒",l:"Moi seul",desc:"Visible uniquement par toi"}
+  ];
+
+  return h("div",{style:{paddingBottom:"calc(90px + var(--sab))",minHeight:"100vh"}},
+    // Header
+    h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"calc(52px + var(--sat)) 16px 14px",display:"flex",alignItems:"center",gap:12,borderBottom:"1px solid rgba(255,255,255,0.6)"}},
+      h("button",{onClick:onBack,style:{width:36,height:36,borderRadius:10,background:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+        h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+      ),
+      h("div",null,
+        h("div",{style:{fontSize:16,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}},`${cat.emoji} ${cat.name}`),
+        h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1}},"Accès à cette catégorie")
+      )
+    ),
+
+    // Modes
+    h("div",{style:{padding:"16px 16px 0"}},
+      h("div",{style:{fontSize:11,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}},"Qui peut voir ?"),
+      h("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+        modes.map(m=>{
+          const on=(isPub&&m.v==="public")||(isPrv&&m.v==="private")||(isCst&&m.v==="custom");
+          return h("button",{key:m.v,onClick:()=>setMode(m.v),style:{
+            display:"flex",alignItems:"center",gap:14,padding:"14px 16px",
+            background:on?"rgba(255,255,255,0.85)":"rgba(255,255,255,0.6)",
+            backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",
+            border:on?"1.5px solid var(--zone-teal)":"1px solid rgba(255,255,255,0.7)",
+            borderRadius:16,cursor:"pointer",textAlign:"left",
+            boxShadow:on?"0 0 0 3px rgba(29,190,170,0.15),0 4px 16px rgba(31,38,135,0.06)":"0 2px 12px rgba(31,38,135,0.04)"
+          }},
+            h("div",{style:{width:40,height:40,borderRadius:12,background:on?"rgba(29,190,170,0.12)":"rgba(0,0,0,0.04)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}},m.icon),
+            h("div",{style:{flex:1}},
+              h("div",{style:{fontSize:14,fontWeight:700,color:on?"var(--green)":"var(--text)"}},[m.l," ",on&&h("span",{style:{fontSize:11,fontWeight:600}},"✓")]),
+              h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:2}},m.desc)
+            )
+          );
+        })
+      )
+    ),
+
+    // Liste abonnés pour le mode custom
+    isCst&&h("div",{style:{padding:"20px 16px 0"}},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
+        h("div",{style:{fontSize:11,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em"}},
+          followers.length===0?"Abonnés":"Mes abonnés"
+        ),
+        customSel.length>0&&h("span",{style:{fontSize:12,fontWeight:700,color:"var(--green)"}},`${customSel.length} sélectionné${customSel.length>1?"s":""}`)
+      ),
+      followers.length===0
+        ?h("div",{style:{padding:"28px 16px",textAlign:"center",background:"#fff",borderRadius:14,border:"0.5px solid var(--border)"}},
+            h("div",{style:{fontSize:24,marginBottom:8}},"👤"),
+            h("div",{style:{fontSize:14,fontWeight:600,color:"var(--text)"}},"Aucun utilisateur trouvé"),
+            h("div",{style:{fontSize:13,color:"var(--text2)",marginTop:4}},"Les personnes qui te suivent apparaîtront ici")
+          )
+        :h("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+            // Séparateur abonnés / autres si mélange
+            followers.some(f=>f.isFollower)&&h("div",{style:{fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}},"Abonnés"),
+            followers.map(({uid,u,isFollower})=>{
+              const chk=customSel.includes(uid);
+              const hue=userStyle(uid,users).color;
+              return h("div",{key:uid,onClick:()=>tog(uid),style:{
+                display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+                borderRadius:14,cursor:"pointer",
+                background:"#fff",
+                border:chk?"1.5px solid var(--green)":"0.5px solid var(--border)",
+                boxShadow:chk?"0 0 0 3px var(--gbg)":"none"
+              }},
+                h(Av,{photo:u?.photo,pseudo:u?.pseudo||"?",sz:40,hue}),
+                h("div",{style:{flex:1}},
+                  h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                    h("span",{style:{fontSize:14,fontWeight:700,color:"var(--text)"}},u?.pseudo||uid.slice(0,8)),
+                    isFollower&&h("span",{style:{fontSize:9,fontWeight:700,color:"var(--green)",background:"var(--gbg)",padding:"1px 5px",borderRadius:5}},"abonné")
+                  ),
+                  u?.bio&&h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1}},u.bio)
+                ),
+                h("div",{style:{
+                  width:24,height:24,borderRadius:8,flexShrink:0,
+                  background:chk?"var(--green)":"transparent",
+                  border:`1.5px solid ${chk?"var(--green)":"var(--border2)"}`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  transition:"all .15s"
+                }},
+                  chk&&h("svg",{width:13,height:13,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:3},h("polyline",{points:"20 6 9 17 4 12"}))
+                )
+              );
+            })
+          ),
+
+      // Récap
+      customSel.length>0&&h("div",{style:{marginTop:12,padding:"12px 14px",background:"var(--gbg)",borderRadius:12,fontSize:13,color:"var(--gtxt)",fontWeight:500}},
+        `✓ ${customSel.map(uid=>users[uid]?.pseudo||uid.slice(0,6)).join(", ")} ${customSel.length>1?"pourront":"pourra"} voir cette catégorie.`
+      )
+    )
+  );
+}
+
+// ── CATÉGORIES ────────────────────────────────────────────
+function CatsScreen({myUid,cats,onBack,onEditAccess}){
+  const [nm,setNm]=useState("");const [emj,setEmj]=useState("📌");
+  const emojis=["📌","🏠","✈️","🎯","💼","🌿","🎵","📸","🌅","🎉","❤️","⚽","🍕","🔒"];
+  const add=()=>{if(!nm.trim())return;saveCat(myUid,"c"+Date.now(),{name:nm.trim(),emoji:emj,access:"public"});setNm("");};
+
+  return h("div",{style:{minHeight:"100vh"}},
+    h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.6)",padding:"calc(52px + var(--sat)) 16px 14px",display:"flex",alignItems:"center",gap:14}},
+      h("button",{onClick:onBack,style:{width:36,height:36,borderRadius:10,background:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+        h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"var(--text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+      ),
+      h("div",null,
+        h("div",{style:{fontSize:16,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}},"Mes catégories"),
+        h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:1}},"Contrôle précisément qui voit chaque catégorie.")
+      )
+    ),
+    h("div",{style:{padding:"16px 16px",paddingBottom:"calc(90px + var(--sab))"}},
+    h("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+      cats.map(cat=>{const l=aLbl(cat.access);
+        return h("div",{key:cat.id,style:{background:"#fff",border:"0.5px solid var(--border)",borderRadius:"var(--rl)",padding:"14px 16px"}},
+          h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+            h("span",{style:{fontSize:22,flexShrink:0}},cat.emoji),
+            h("div",{style:{flex:1}},h("div",{style:{fontSize:14,fontWeight:500}},cat.name),h("span",{style:{marginTop:5,display:"inline-block",fontSize:12,padding:"2px 9px",borderRadius:20,background:l.bg,color:l.c,fontWeight:500}},`${l.icon} ${l.label}`)),
+            h("div",{style:{display:"flex",gap:6}},
+              h("button",{onClick:()=>onEditAccess(cat.id),style:{padding:"6px 12px",fontSize:12,borderRadius:"var(--r)",cursor:"pointer",background:"var(--bg2)",border:"0.5px solid var(--border)",color:"var(--text)"}},"Modifier"),
+              h("button",{onClick:()=>rmCat(myUid,cat.id),style:{padding:"6px 10px",fontSize:14,borderRadius:"var(--r)",cursor:"pointer",background:"transparent",border:"0.5px solid var(--border)",color:"var(--text3)"}},"×")
+            )
+          )
+        );
+      })
+    ),
+    h("div",{style:{marginTop:14,background:"#fff",border:"0.5px solid var(--border)",borderRadius:"var(--rl)",padding:"14px 16px"}},
+      h("div",{style:{fontSize:13,fontWeight:500,marginBottom:10}},"Nouvelle catégorie"),
+      h("div",{style:{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}},emojis.map(e=>h("button",{key:e,onClick:()=>setEmj(e),style:{fontSize:15,background:emj===e?"var(--bg2)":"transparent",border:emj===e?"0.5px solid var(--border2)":"0.5px solid transparent",borderRadius:6,cursor:"pointer",padding:"4px 5px"}},e))),
+      h("div",{style:{display:"flex",gap:8}},
+        h("input",{value:nm,onChange:e=>setNm(e.target.value),placeholder:"Nom…",onKeyDown:e=>e.key==="Enter"&&add(),style:{flex:1,padding:"8px 12px",fontSize:13,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}),
+        h("button",{onClick:add,disabled:!nm.trim(),style:{padding:"8px 14px",fontSize:12,fontWeight:500,background:nm.trim()?"var(--text)":"var(--bg2)",color:nm.trim()?"#fff":"var(--text3)",border:"none",borderRadius:"var(--r)",cursor:nm.trim()?"pointer":"default"}},"Créer")
+      )
+    )
+    )
+  );
+}
+
+// ── FOLLOWERS / FOLLOWING SCREEN ─────────────────────────
+function FollowListScreen({title,uids,users,myUid,following,onGoProfile,onBack}){
+  return h("div",{style:{minHeight:"100vh",paddingBottom:"calc(100px + var(--sab))"}},
+    h("div",{style:{background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.6)",padding:"calc(52px + var(--sat)) 20px 16px",display:"flex",alignItems:"center",gap:14}},
+      h("button",{onClick:onBack,style:{width:40,height:40,borderRadius:12,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 2px 8px rgba(31,38,135,0.06)"}},
+        h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+      ),
+      h("span",{style:{fontSize:18,fontWeight:700,color:"var(--zone-text)"}},title)
+    ),
+    uids.length===0
+      ?h("div",{style:{padding:"60px 24px",textAlign:"center"}},
+          h("div",{style:{fontSize:36,marginBottom:12}},"👤"),
+          h("div",{style:{fontSize:15,fontWeight:600,color:"var(--zone-text)",marginBottom:6}},"Personne ici"),
+          h("div",{style:{fontSize:13,color:"var(--zone-text-light)"}},"La liste est vide pour l'instant")
+        )
+      :h("div",{style:{padding:"12px 16px",display:"flex",flexDirection:"column",gap:10}},
+          uids.map(uid=>{
+            const u=users[uid];if(!u)return null;
+            const hue=userStyle(uid,users).color;
+            const isF=!!(following&&following[uid]);
+            return h("div",{key:uid,style:{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"rgba(255,255,255,0.75)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.8)",borderRadius:20,cursor:"pointer",boxShadow:"0 4px 20px rgba(31,38,135,0.06)"},onClick:()=>onGoProfile(uid)},
+              h(Av,{photo:u.photo,pseudo:u.pseudo||"?",sz:46,hue}),
+              h("div",{style:{flex:1,minWidth:0}},
+                h("div",{style:{fontSize:15,fontWeight:600,color:"var(--zone-text)"}},u.pseudo||uid.slice(0,8)),
+                u.bio&&h("div",{style:{fontSize:13,color:"var(--zone-text-light)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},u.bio),
+                u.ville&&h("div",{style:{fontSize:12,color:"var(--zone-text-light)",marginTop:2}},"📍 "+u.ville)
+              ),
+              uid!==myUid&&h("button",{onClick:e=>{e.stopPropagation();toggleFollow(myUid,uid,isF);},style:{
+                padding:"7px 16px",fontSize:12,fontWeight:600,
+                background:isF?"rgba(255,255,255,0.6)":"var(--zone-teal)",
+                color:isF?"var(--zone-text)":"#fff",
+                border:isF?"1px solid rgba(0,0,0,0.08)":"none",borderRadius:20,cursor:"pointer",flexShrink:0
+              }},isF?"Abonné ✓":"Suivre")
+            );
+          })
+        )
+  );
+}
+
+// ── DAILY STREAK SYSTEM ──────────────────────────────────
+// Date locale (fuseau horaire du device = fuseau de l'endroit où la personne est)
+function localToday(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function localYesterday(){
+  const d=new Date();d.setDate(d.getDate()-1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function postDayLocal(ts){
+  const d=new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function getWeekDays(){
+  const days=[];const labels=["D","L","M","M","J","V","S"];
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    days.push({date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,label:labels[d.getDay()],isToday:i===0});
+  }
+  return days;
+}
+
+// Met à jour la streak après un post. Retourne le nouveau count.
+async function updateStreak(myUid){
+  const today=localToday();
+  const yesterday=localYesterday();
+  const ref=db.ref(`users/${myUid}/streak`);
+  const snap=await ref.once('value');
+  const s=snap.val()||{count:0,lastDay:""};
+  // Déjà posté aujourd'hui → pas de changement
+  if(s.lastDay===today)return s.count;
+  // Streak continue (hier ou premier post)
+  const newCount=s.lastDay===yesterday?s.count+1:1;
+  await ref.set({count:newCount,lastDay:today});
+  return newCount;
+}
+
+// Calcule la streak rétroactive à partir des posts existants
+function computeRetroactiveStreak(userPosts){
+  if(!userPosts||userPosts.length===0)return{count:0,lastDay:""};
+  // Jours uniques où l'utilisateur a posté
+  const postedDays=new Set(userPosts.map(p=>postDayLocal(p.ts)));
+  // Remonter depuis aujourd'hui
+  let count=0;
+  const d=new Date();
+  for(let i=0;i<365;i++){
+    const dayStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if(postedDays.has(dayStr)){count++;d.setDate(d.getDate()-1);}
+    else break;
+  }
+  if(count===0){
+    // Pas posté aujourd'hui, essayer depuis hier
+    const y=new Date();y.setDate(y.getDate()-1);
+    for(let i=0;i<365;i++){
+      const dayStr=`${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
+      if(postedDays.has(dayStr)){count++;y.setDate(y.getDate()-1);}
+      else break;
+    }
+    if(count>0){
+      // La streak est basée sur hier comme dernier jour
+      const lastD=new Date();lastD.setDate(lastD.getDate()-1);
+      return{count,lastDay:`${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`};
+    }
+    return{count:0,lastDay:""};
+  }
+  return{count,lastDay:localToday()};
+}
+
+// Composant célébration streak — overlay plein écran 3 sec
+function StreakCelebration({count,onDone}){
+  const [visible,setVisible]=useState(true);
+  const [displayCount,setDisplayCount]=useState(Math.max(0,count-1));
+  // CountUp animation
+  useEffect(()=>{
+    const t1=setTimeout(()=>setDisplayCount(count),400);
+    const t2=setTimeout(()=>{setVisible(false);onDone();},3200);
+    return()=>{clearTimeout(t1);clearTimeout(t2);};
+  },[]);
+  // Confetti particles
+  const particles=useRef(Array.from({length:18},(_,i)=>({
+    id:i,
+    x:(Math.random()-0.5)*280,
+    y:(Math.random()-0.5)*280,
+    r:Math.random()*360,
+    s:0.4+Math.random()*0.8,
+    d:0.4+Math.random()*0.8,
+    c:["#1DBEAA","#00D4FF","#9B6FFF","#FF6B9D","#FFD700","#1D9E75"][i%6]
+  }))).current;
+
+  if(!visible)return null;
+  return h("div",{style:{position:"fixed",inset:0,zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.45)",animation:"streakFadeOut 3.2s forwards"}},
+    // Confetti
+    particles.map(p=>h("div",{key:p.id,style:{
+      position:"absolute",top:"50%",left:"50%",width:p.s>0.6?10:7,height:p.s>0.6?10:7,
+      borderRadius:p.id%3===0?"50%":"2px",background:p.c,
+      animation:`confettiBurst ${p.d+0.5}s ${p.d*0.2}s cubic-bezier(.25,.46,.45,.94) forwards`,
+      transform:`translate(${p.x}px,${p.y}px) rotate(${p.r}deg)`
+    }})),
+    // Centre
+    h("div",{style:{textAlign:"center",position:"relative",zIndex:2}},
+      // Check circle
+      h("div",{style:{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,#1DBEAA,#00D4FF)",margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",animation:"streakCheckPop 0.6s cubic-bezier(.25,.46,.45,.94) both"}},
+        h("svg",{width:36,height:36,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:2.5,strokeLinecap:"round"},h("polyline",{points:"20 6 9 17 4 12"}))
+      ),
+      // Shiny text
+      h("div",{className:"shiny-text",style:{fontSize:20,fontWeight:900,letterSpacing:"-0.03em",marginBottom:6,WebkitTextFillColor:"initial",color:"#fff",background:"linear-gradient(90deg,#fff 0%,#fff 35%,#a0f0dd 50%,#fff 65%,#fff 100%)",backgroundSize:"200% auto",WebkitBackgroundClip:"text",backgroundClip:"text",WebkitTextFillColor:"transparent"}},
+        "Streak maintenue !"
+      ),
+      // CountUp
+      h("div",{style:{fontSize:42,fontWeight:900,color:"#fff",animation:"streakCountUp 0.5s 0.3s both",textShadow:"0 2px 20px rgba(0,0,0,0.3)"}},
+        "🔥 ",displayCount," jour"+(displayCount>1?"s":"")
+      )
+    )
+  );
+}
+
+// Composant badge streak pour les boutons Publier
+function StreakBadge({count,postedToday}){
+  if(!count||count<1)return null;
+  return h("div",{style:{
+    position:"absolute",top:-6,right:-6,
+    background:postedToday?"#1D9E75":"#FF6B9D",
+    color:"#fff",fontSize:9,fontWeight:700,
+    padding:"2px 5px",borderRadius:8,lineHeight:1.2,zIndex:5,
+    animation:postedToday?undefined:"streakBadgePulse 2s infinite",
+    whiteSpace:"nowrap"
+  }},postedToday?`✓ ${count}`:`🔥 ${count}`);
+}
+
+// Calendrier semaine pour le profil
+function WeekCalendar({posts,uid}){
+  const week=getWeekDays();
+  const postedDays=new Set(posts.filter(p=>p.uid===uid).map(p=>postDayLocal(p.ts)));
+  return h("div",{style:{display:"flex",gap:4,justifyContent:"space-between"}},
+    week.map(d=>{
+      const done=postedDays.has(d.date);
+      return h("div",{key:d.date,style:{flex:1,textAlign:"center"}},
+        h("div",{style:{
+          width:28,height:28,borderRadius:"50%",margin:"0 auto 4px",
+          display:"flex",alignItems:"center",justifyContent:"center",
+          background:done?(d.isToday?"linear-gradient(135deg,#1DBEAA,#00D4FF)":"#1D9E75"):"rgba(0,0,0,0.05)",
+          boxShadow:done&&d.isToday?"0 0 0 2px rgba(29,190,170,0.2)":"none"
+        }},
+          done
+            ?h("svg",{width:11,height:11,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:3},h("polyline",{points:"20 6 9 17 4 12"}))
+            :h("div",{style:{width:5,height:5,borderRadius:"50%",background:"rgba(0,0,0,0.12)"}})
+        ),
+        h("div",{style:{fontSize:11,fontWeight:d.isToday?700:400,color:d.isToday&&done?"#1D9E75":"var(--text3)"}},d.label)
+      );
+    })
+  );
+}
+
+// ── PROFIL ────────────────────────────────────────────────
+function ProfileScreen({uid,myUid,users,posts,gps,cats,allCats,onBack,onGoProfile,onEditAccess,onFollowList}){
+  const u=users[uid]||{};
+  const isSelf=uid===myUid;
+  const me=users[myUid]||{};
+  const hue=userStyle(uid,users).color;
+  const isF=!!(me.following&&me.following[uid]);
+  const isB=!!(me.blocked&&me.blocked[uid]);
+  const [opt,setOpt]=useState(false);
+  const [catFilter,setCatFilter]=useState("all");
+  const [editMode,setEditMode]=useState(false);
+  const [ePseudo,setEPseudo]=useState("");
+  const [eBio,setEBio]=useState("");
+  const [eVille,setEVille]=useState("");
+  const [ePhoto,setEPhoto]=useState(null);
+  const fileRef=useRef(null);
+  const emojiInputRef=useRef(null);
+  const [eColor,setEColor]=useState('');
+  const [ePattern,setEPattern]=useState('');
+  const [eEmoji,setEEmoji]=useState('');
+  // ── SPLIT VIEW — hooks AVANT tout return conditionnel (Rules of Hooks)
+  const [selectedPostId,setSelectedPostId]=useState(null);
+  const profileMapRef=useRef(null);
+
+  const mine=useMemo(()=>posts.filter(p=>p.uid===uid),[posts,uid]);
+  const photos=mine.filter(p=>p.photo);
+  const filteredPosts=catFilter==="all"?mine:catFilter==="none"?mine.filter(p=>!p.cat):mine.filter(p=>p.cat===catFilter);
+  const followers=Object.values(users).filter(u=>u?.following&&u.following[uid]).length;
+
+  const handleFile=async f=>{if(!f||!f.type.startsWith("image/"))return;setEPhoto(await compressImg(f));};
+  const saveEdit=async()=>{
+    await saveProfile(myUid,{pseudo:(ePseudo||u.pseudo||"").trim(),bio:(eBio||"").trim(),ville:(eVille||"").trim(),photo:ePhoto||u.photo||null,userColor:eColor||u.userColor||uidHue(myUid),userPattern:ePattern||u.userPattern||'solid',userEmoji:eEmoji||u.userEmoji||'🌟'});
+    setEditMode(false);setEPhoto(null);
+  };
+
+  if(editMode&&isSelf) return h("div",{style:{background:"#fff",minHeight:"100vh"}},
+    h("div",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"0.5px solid var(--border)",padding:"calc(var(--sat) + 14px) 24px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+      h("button",{onClick:()=>setEditMode(false),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text2)",padding:0}},"Annuler"),
+      h("span",{style:{fontSize:15,fontWeight:500}},"Modifier le profil"),
+      h("button",{onClick:saveEdit,style:{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"#1D9E75",fontWeight:500,padding:0}},"Sauvegarder")
+    ),
+    h("div",{style:{padding:"20px 24px 60px"}},
+    h("div",{style:{display:"flex",justifyContent:"center",marginBottom:20}},
+      h("div",{style:{position:"relative",cursor:"pointer"},onClick:()=>fileRef.current?.click()},
+        (ePhoto||u.photo)?h("img",{src:ePhoto||u.photo,style:{width:88,height:88,borderRadius:"50%",objectFit:"cover",display:"block",border:"3px solid #fff",outline:"2px solid var(--border2)"}})
+          :h("div",{style:{width:88,height:88,borderRadius:"50%",background:"var(--bg2)",border:"2px dashed var(--border2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}},"📷"),
+        h("div",{style:{position:"absolute",bottom:2,right:2,width:24,height:24,borderRadius:"50%",background:"var(--text)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",border:"2px solid #fff"}},"✎"),
+        h("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:e=>{const f=e.target.files[0];if(f)handleFile(f);}})
+      )
+    ),
+    h("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+      h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Pseudo"),h("input",{value:ePseudo||u.pseudo||"",onChange:e=>setEPseudo(e.target.value),maxLength:24,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border2)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}})),
+      h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Bio"),h("textarea",{value:eBio||u.bio||"",onChange:e=>setEBio(e.target.value),maxLength:80,rows:2,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)",resize:"none"}})),
+      h("div",null,h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:5}},"Ville"),h("input",{value:eVille||u.ville||"",onChange:e=>setEVille(e.target.value),maxLength:40,style:{width:"100%",padding:"11px 14px",fontSize:14,border:"0.5px solid var(--border)",borderRadius:"var(--r)",background:"#fff",color:"var(--text)"}}))
+    ),
+    // ── Mon style sur la carte ──
+    h("div",{style:{marginTop:22,paddingTop:18,borderTop:"0.5px solid var(--border)"}},
+      h("div",{style:{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:14}},"🗺️ Mon style sur la carte"),
+      h("div",{style:{marginBottom:14}},
+        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:8}},"Couleur"),
+        h("div",{style:{display:"flex",gap:7,flexWrap:"wrap"}},
+          ["#1DBEAA","#00D4FF","#9B6FFF","#FF6B9D","#F59E0B","#EF4444","#10B981","#3B82F6","#FF8C42","#06B6D4","#84CC16","#EC4899"].map(c=>{
+            const active=eColor||u.userColor||uidHue(myUid);
+            return h("div",{key:c,onClick:()=>setEColor(c),style:{width:28,height:28,borderRadius:9,background:c,cursor:"pointer",flexShrink:0,border:`2.5px solid ${active===c?"#0D1117":"transparent"}`,transition:"transform .1s,border-color .1s"}});
+          })
+        )
+      ),
+      h("div",{style:{marginBottom:8}},
+        h("label",{style:{fontSize:12,fontWeight:500,color:"var(--text2)",display:"block",marginBottom:8}},"Motif"),
+        h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          [{id:"solid",lbl:"Uni"},{id:"dots",lbl:"Points"},{id:"hatch",lbl:"Hachures"},{id:"grid",lbl:"Grille"},{id:"dashes",lbl:"Tirets"},{id:"stars",lbl:"Étoiles"},{id:"crosses",lbl:"Croix"},{id:"waves",lbl:"Vagues"},{id:"emoji",lbl:"Emoji"}].map(p=>{
+            const curPat=ePattern||u.userPattern||'solid';
+            const col=eColor||u.userColor||uidHue(myUid);
+            const isOn=curPat===p.id;
+            return h("button",{key:p.id,onClick:()=>setEPattern(p.id),style:{padding:"5px 10px",fontSize:11,borderRadius:10,border:`1.5px solid ${isOn?col:"var(--border2)"}`,background:isOn?col+"22":"var(--bg2)",color:isOn?col:"var(--text2)",cursor:"pointer",fontWeight:isOn?600:400,transition:"all .12s"}},p.lbl);
+          })
+        )
+      ),
+      (ePattern||u.userPattern||'solid')==='emoji'&&h("div",{style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"var(--bg2)",borderRadius:"var(--r)",marginTop:8}},
+        h("div",{style:{fontSize:34,fontFamily:"Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif",width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:"#fff",borderRadius:12,border:`2px solid ${(eColor||u.userColor||uidHue(myUid))+"33"}`}},eEmoji||u.userEmoji||'🌟'),
+        h("div",{style:{flex:1}},
+          h("p",{style:{fontSize:12,color:"var(--text2)",marginBottom:8,lineHeight:1.5}},"Bascule sur le clavier emoji via la touche 🌐 puis choisis ton emoji."),
+          h("button",{
+            onClick:()=>{
+              if(!emojiInputRef.current)return;
+              emojiInputRef.current.style.pointerEvents="auto";
+              emojiInputRef.current.focus();
+              setTimeout(()=>{if(emojiInputRef.current)emojiInputRef.current.style.pointerEvents="none";},5000);
+            },
+            style:{padding:"6px 14px",fontSize:12,borderRadius:10,border:"0.5px solid var(--border2)",background:"#fff",color:"var(--text)",cursor:"pointer"}
+          },"✏️ Choisir un emoji"),
+          h("input",{
+            ref:emojiInputRef,type:"text",maxLength:10,autoComplete:"off",autoCorrect:"off",spellCheck:false,
+            style:{position:"fixed",bottom:"50%",left:"50%",width:2,height:2,opacity:0.01,zIndex:-1,pointerEvents:"none",border:"none",outline:"none"},
+            onInput:e=>{const m=extractFirstEmoji(e.target.value);if(m)setEEmoji(m);e.target.value="";}
+          })
+        )
+      )
+    ),
+    h("button",{onClick:()=>{auth.signOut();},style:{marginTop:28,width:"100%",padding:11,fontSize:13,background:"transparent",border:"0.5px solid var(--border2)",borderRadius:"var(--r)",cursor:"pointer",color:"var(--red)"}},"Se déconnecter")
+    )
+  );
+
+  // Couleur de la cover : vert pour soi, hue de l'user pour les autres
+  const coverColor=isSelf?"#1D9E75":hue;
+  const coverColorDeep=isSelf?"#0a5e44":hue+"dd";
+  // Icône accès catégorie
+  const accIcon=a=>a==="public"?"🌍":a==="private"?"🔒":"👥";
+  const accColor=a=>a==="public"?"var(--green)":a==="private"?"var(--text3)":"#378ADD";
+
+  const handleSelectPhoto=(p)=>{
+    setSelectedPostId(prev=>prev===p.id?null:p.id);
+    if(profileMapRef.current&&p.lat&&p.lng){
+      profileMapRef.current.flyTo([p.lat,p.lng],15,{duration:0.5});
+    }
+  };
+  const handleSelectMarker=(p)=>{
+    setSelectedPostId(prev=>prev===p.id?null:p.id);
+  };
+
+  // Photos filtrées par catégorie (pour la grille et la carte)
+  const photosFiltered=photos.filter(p=>catFilter==="all"||p.cat===catFilter);
+  const postsForMap=mine.filter(p=>p.lat&&p.lng&&(catFilter==="all"||p.cat===catFilter));
+
+  return h("div",{style:{paddingBottom:"calc(80px + var(--sab))",minHeight:"100vh"}},
+
+    // ① COVER — compacte, absorbe la Dynamic Island
+    h("div",{style:{position:"relative",height:`calc(120px + var(--sat))`,background:`linear-gradient(145deg,${coverColor} 0%,${coverColorDeep} 100%)`,overflow:"visible",flexShrink:0,zIndex:2}},
+      h("div",{style:{position:"absolute",inset:0,overflow:"hidden",borderRadius:0},
+      },h("div",{style:{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(45deg,rgba(255,255,255,0.05) 0px,rgba(255,255,255,0.05) 1px,transparent 1px,transparent 9px)",pointerEvents:"none"}})
+      ),
+
+      // Flèche retour — fond sombre, contraste maximal sur toute couleur
+      h("button",{onClick:onBack,style:{position:"absolute",top:"calc(var(--sat) + 14px)",left:16,width:38,height:38,borderRadius:13,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:5}},
+        h("svg",{width:17,height:17,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"},h("polyline",{points:"15 18 9 12 15 6"}))
+      ),
+
+      // Bouton action haut-droite — dans la cover (Modifier / Suivre / options)
+      h("div",{style:{position:"absolute",top:"calc(var(--sat) + 14px)",right:16,zIndex:5,display:"flex",gap:8,alignItems:"center"}},
+        isSelf
+          ? h("button",{onClick:()=>setEditMode(true),style:{padding:"9px 16px",fontSize:12,fontWeight:700,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",borderRadius:13,cursor:"pointer",color:"#fff",whiteSpace:"nowrap"}},"Modifier ✎")
+          : isB
+            ? h("button",{onClick:()=>doUnblock(myUid,uid),style:{padding:"9px 16px",fontSize:12,fontWeight:700,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",borderRadius:13,cursor:"pointer",color:"#fff"}},"Débloquer")
+            : h(React.Fragment,null,
+                h("button",{onClick:()=>toggleFollow(myUid,uid,isF),style:{padding:"9px 16px",fontSize:12,fontWeight:700,background:isF?"rgba(0,0,0,0.28)":"rgba(255,255,255,0.22)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:13,cursor:"pointer",color:"#fff",whiteSpace:"nowrap"}},isF?"Abonné ✓":"Suivre"),
+                h("div",{style:{position:"relative"}},
+                  h("button",{onClick:()=>setOpt(v=>!v),style:{width:38,height:38,borderRadius:13,background:"rgba(0,0,0,0.28)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.22)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},
+                    h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none"},
+                      h("circle",{cx:12,cy:5,r:1.4,fill:"rgba(255,255,255,0.95)"}),
+                      h("circle",{cx:12,cy:12,r:1.4,fill:"rgba(255,255,255,0.95)"}),
+                      h("circle",{cx:12,cy:19,r:1.4,fill:"rgba(255,255,255,0.95)"})
+                    )
+                  ),
+                  opt&&h("div",{style:{position:"absolute",right:0,top:"calc(100% + 8px)",background:"#fff",borderRadius:"var(--r)",zIndex:30,minWidth:150,overflow:"hidden",boxShadow:"var(--shadow2)"}},
+                    h("button",{onClick:()=>{doBlock(myUid,uid);setOpt(false);},style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"var(--red)"}},"🚫 Bloquer"),
+                    h("button",{onClick:()=>setOpt(false),style:{display:"block",width:"100%",padding:"12px 16px",fontSize:13,background:"transparent",borderTop:"0.5px solid var(--border)",cursor:"pointer",textAlign:"left",color:"var(--text2)"}},"🚩 Signaler")
+                  )
+                )
+              )
+      ),
+
+      // Avatar — ancré en bas-gauche, déborde vers le bas
+      h("div",{style:{position:"absolute",bottom:-36,left:16,zIndex:4}},
+        u.photo
+          ?h("img",{src:u.photo,style:{width:72,height:72,borderRadius:22,objectFit:"cover",border:"2px solid rgba(255,255,255,0.9)",boxShadow:`0 4px 18px ${coverColor}33`,display:"block"}})
+          :h("div",{style:{width:72,height:72,borderRadius:22,background:`linear-gradient(135deg,${coverColor},${coverColorDeep})`,border:"2px solid rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:900,color:"#fff",boxShadow:`0 4px 18px ${coverColor}33`}},(u.pseudo||"?").slice(0,2).toUpperCase())
+      )
+    ),
+
+    // ② PROFIL INFO — pseudo + bio + stats
+    h("div",{style:{background:"rgba(255,255,255,0.85)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",padding:"46px 16px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.06)"}},
+
+      // Pseudo + ville
+      h("div",{style:{marginBottom:u.bio?6:10}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          h("span",{style:{fontSize:18,fontWeight:900,color:"var(--text)",letterSpacing:"-0.03em",lineHeight:1.15}},(u.pseudo||"Utilisateur")),
+          (()=>{const s=u.streak||{};const t=localToday();const y=localYesterday();const cnt=s.lastDay===t||s.lastDay===y?s.count:0;
+            return cnt>0?h("span",{style:{fontSize:12,fontWeight:700,color:"#0F6E56",background:"#E8F7F2",padding:"2px 8px",borderRadius:10}},"🔥 "+cnt):null;
+          })()
+        ),
+        u.ville&&h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:3}},`📍 ${u.ville}`)
+      ),
+
+      // Bio
+      u.bio&&h("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.55,marginBottom:14}},u.bio),
+
+      // STATS
+      h("div",{style:{display:"flex",borderRadius:14,overflow:"hidden",background:"rgba(0,0,0,0.04)",marginTop:u.bio?0:0}},
+        h("div",{style:{flex:1,padding:"10px 4px",textAlign:"center",cursor:"default"}},
+          h("div",{style:{fontSize:18,fontWeight:900,color:"var(--text)",letterSpacing:"-0.02em"}},mine.length),
+          h("div",{style:{fontSize:9,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}},"Posts")
+        ),
+        h("div",{onClick:()=>onFollowList&&onFollowList("followers"),style:{flex:1,padding:"10px 4px",textAlign:"center",borderLeft:"0.5px solid rgba(0,0,0,0.08)",cursor:"pointer"}},
+          h("div",{style:{fontSize:18,fontWeight:900,color:"var(--text)",letterSpacing:"-0.02em"}},followers),
+          h("div",{style:{fontSize:9,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}},"Abonnés")
+        ),
+        h("div",{onClick:()=>onFollowList&&onFollowList("following"),style:{flex:1,padding:"10px 4px",textAlign:"center",borderLeft:"0.5px solid rgba(0,0,0,0.08)",cursor:"pointer"}},
+          h("div",{style:{fontSize:18,fontWeight:900,color:"var(--text)",letterSpacing:"-0.02em"}},Object.keys((isSelf?me:users[uid])?.following||{}).length),
+          h("div",{style:{fontSize:9,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:1}},"Suivi")
+        )
+      ),
+
+      // CALENDRIER SEMAINE — visible si streak active
+      (()=>{const s=u.streak||{};const t=localToday();const y=localYesterday();const cnt=s.lastDay===t||s.lastDay===y?s.count:0;
+        return cnt>0?h("div",{style:{marginTop:14,background:"rgba(0,0,0,0.02)",borderRadius:12,padding:"12px 10px"}},
+          h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
+            h("span",{style:{fontSize:12,fontWeight:700,color:"var(--text)",letterSpacing:"-0.02em"}},"Cette semaine"),
+            h("span",{style:{fontSize:12,fontWeight:700,color:"var(--green)"}},"🔥 "+cnt+" jour"+(cnt>1?"s":""))
+          ),
+          h(WeekCalendar,{posts,uid})
+        ):null;
+      })(),
+
+      // CATÉGORIES — filtre (profil propre uniquement) — visible même si vide
+      isSelf&&h("div",{style:{marginTop:16}},
+        h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
+          h("span",{style:{fontSize:13,fontWeight:800,color:"var(--text)",letterSpacing:"-0.02em"}},"Catégories"),
+          h("button",{onClick:()=>onEditAccess("__cats__"),style:{fontSize:12,fontWeight:600,color:"var(--green)",background:"transparent",border:"none",cursor:"pointer"}},cats.length>0?"Gérer →":"Créer →")
+        ),
+        cats.length>0
+          ?h("div",{style:{display:"flex",gap:8,overflowX:"auto",paddingBottom:2,scrollbarWidth:"none"}},
+            cats.map(c=>{
+              const postCount=mine.filter(p=>p.cat===c.id).length;
+              const isActive=catFilter===c.id;
+              const acc=c.access||"public";
+              return h("div",{key:c.id,style:{flexShrink:0,background:"#fff",borderRadius:14,minWidth:80,boxShadow:isActive?`0 0 0 2px var(--green),var(--shadow)`:"var(--shadow)",overflow:"hidden",position:"relative"}},
+                h("div",{onClick:()=>{setCatFilter(isActive?"all":c.id);setSelectedPostId(null);},style:{padding:"10px 12px 6px",textAlign:"center",cursor:"pointer"}},
+                  h("div",{style:{position:"absolute",top:5,right:5,background:isActive?"var(--green)":acc==="private"?"var(--text3)":acc==="public"?"var(--green)":"#378ADD",color:"#fff",fontSize:8,fontWeight:700,borderRadius:5,padding:"1px 4px",lineHeight:1.4}},postCount),
+                  h("div",{style:{fontSize:22,marginBottom:4}},c.emoji),
+                  h("div",{style:{fontSize:10,fontWeight:700,color:"var(--text)"}},c.name)
+                ),
+                h("div",{onClick:e=>{e.stopPropagation();onEditAccess(c.id);},style:{borderTop:"0.5px solid var(--border)",padding:"4px 8px",display:"flex",alignItems:"center",justifyContent:"center",gap:3,cursor:"pointer",background:"transparent"}},
+                  h("span",{style:{fontSize:8,fontWeight:700,color:accColor(acc)}},[accIcon(acc)," ",acc==="public"?"Public":acc==="private"?"Privé":"Abonnés"])
+                )
+              );
+            })
+          )
+          :h("div",{onClick:()=>onEditAccess("__cats__"),style:{padding:"20px 16px",background:"rgba(255,255,255,0.7)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px dashed rgba(29,190,170,0.4)",borderRadius:16,textAlign:"center",cursor:"pointer"}},
+            h("div",{style:{fontSize:24,marginBottom:6}},"🏷"),
+            h("div",{style:{fontSize:13,fontWeight:600,color:"var(--text)"}},"Crée tes catégories"),
+            h("div",{style:{fontSize:12,color:"var(--text2)",marginTop:3}},"Organise tes posts et contrôle qui les voit")
+          )
+      )
+    ),
+
+    // ③ CARTE FIXE — hauteur fixe en px (règle Leaflet iOS)
+    postsForMap.length>0&&h("div",{style:{height:220,position:"relative",overflow:"hidden",borderTop:`2px solid ${coverColor}22`}},
+      h(ZoneMap,{
+        posts:postsForMap,
+        gps,
+        myUid,
+        users,
+        onSelectPost:handleSelectMarker,
+        selectedPostId,
+        onMapReady:m=>{ profileMapRef.current=m; },
+        allCats
+      }),
+      // Label flottant si un post est sélectionné
+      selectedPostId&&(()=>{
+        const sp=postsForMap.find(p=>p.id===selectedPostId);
+        if(!sp)return null;
+        return h("div",{style:{position:"absolute",bottom:10,left:"50%",transform:"translateX(-50%)",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(10px)",borderRadius:12,padding:"6px 12px 6px 8px",display:"flex",alignItems:"center",gap:8,boxShadow:"0 2px 12px rgba(0,0,0,0.12)",zIndex:10,whiteSpace:"nowrap",maxWidth:"80%"}},
+          sp.photo&&canSee(sp,myUid,gps)&&h("img",{src:sp.photo,style:{width:32,height:32,borderRadius:8,objectFit:"cover",flexShrink:0}}),
+          h("div",{style:{minWidth:0}},
+            h("div",{style:{fontSize:11,fontWeight:800,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis"}},sp.text||"📷 Photo"),
+            gps&&h("div",{style:{fontSize:10,color:"var(--green)",fontWeight:600}},fmtD(haversine(gps.lat,gps.lng,sp.lat,sp.lng)))
+          ),
+          h("button",{onClick:()=>setSelectedPostId(null),style:{background:"transparent",border:"none",cursor:"pointer",fontSize:14,color:"var(--text3)",padding:0,flexShrink:0,lineHeight:1}},"×")
+        );
+      })()
+    ),
+    // Empty map state
+    postsForMap.length===0&&h("div",{style:{padding:"20px 16px",textAlign:"center",color:"var(--text3)",fontSize:13,background:"#fff",borderTop:`2px solid ${coverColor}22`}},
+      "Aucun post géolocalisé"
+    ),
+
+    // ④ HEADER grille — compteur + info sélection
+    h("div",{style:{background:"#fff",padding:"10px 14px 8px",display:"flex",alignItems:"center",justifyContent:"space-between",borderTop:"0.5px solid var(--border)"}},
+      h("span",{style:{fontSize:12,fontWeight:700,color:"var(--text)"}},(()=>{
+        const count=photosFiltered.length;
+        if(selectedPostId){return h("span",{style:{color:"var(--green)"}},"1 sélectionné — tap pour voir");}
+        return `${count} photo${count>1?"s":""}`;
+      })()),
+      selectedPostId&&h("button",{onClick:()=>setSelectedPostId(null),style:{fontSize:11,fontWeight:600,color:"var(--text3)",background:"transparent",border:"none",cursor:"pointer",padding:0}},"Tout afficher")
+    ),
+
+    // ④ GRILLE PHOTOS — bord à bord, bidirectionnelle
+    photos.length>0&&h("div",{style:{marginTop:1}},
+      h("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:2}},
+        photosFiltered.map(p=>{
+          const vis=canSee(p,myUid,gps);
+          const isSel=p.id===selectedPostId;
+          const dimmed=selectedPostId&&!isSel;
+          return h("div",{key:p.id,onClick:()=>vis?handleSelectPhoto(p):null,style:{aspectRatio:"1",overflow:"hidden",background:"var(--bg2)",cursor:vis?"pointer":"default",position:"relative",transition:"opacity .2s",opacity:dimmed?0.35:1}},
+            vis
+              ?h("img",{src:p.photo,style:{width:"100%",height:"100%",objectFit:"cover",display:"block"}})
+              :h("div",{style:{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,background:hue+"10"}},"🔒"),
+            // Bordure verte si sélectionné
+            isSel&&h("div",{style:{position:"absolute",inset:0,border:`2.5px solid var(--green)`,pointerEvents:"none"}}),
+            // Badge GPS sur les photos localisées
+            vis&&p.lat&&h("div",{style:{position:"absolute",bottom:4,left:4,background:isSel?"var(--green)":"rgba(0,0,0,0.45)",borderRadius:5,padding:"1px 5px",fontSize:7,fontWeight:700,color:"#fff",backdropFilter:"blur(4px)"}},"📍")
+          );
+        })
+      )
+    ),
+
+    // Posts texte (sans photo)
+    h("div",{style:{marginTop:8}},
+      filteredPosts.filter(p=>!p.photo).length===0&&photos.length>0?null
+      :filteredPosts.filter(p=>!p.photo).map(p=>h(PostCard,{key:p.id,post:p,myUid,gps,cats,users,onAuthor:()=>{},onEdit:(id,txt)=>patchPost(id,{text:txt}),onDelete:id=>rmPost(id)}))
+    ),
+
+  );
+}
+
+// ── APP PRINCIPALE ────────────────────────────────────────
+function App(){
+  const [phase,setPhase]=useState("loading"); // loading | welcome | google | setup | gps | app
+  const [authUser,setAuthUser]=useState(null);
+  const [users,setUsers]=useState({});
+  const [posts,setPosts]=useState([]);
+  const [myCats,setMyCats]=useState([]);
+  const [allCats,setAllCats]=useState({});
+  const [gps,setGps]=useState(null);
+  const [stack,setStack]=useState([{id:"map"}]);
+  const [signLoading,setSignLoading]=useState(false);
+  const [signError,setSignError]=useState(false);
+
+  const push=s=>setStack(p=>[...p,s]);
+  const pop=()=>setStack(p=>p.length>1?p.slice(0,-1):p);
+  const goRoot=id=>setStack([{id}]);
+  const cur=stack[stack.length-1];
+  const isRoot=stack.length===1;
+  const activeTab=isRoot?cur.id:null;
+
+  // Auth listener
+  useEffect(()=>{
+    return auth.onAuthStateChanged(async user=>{
+      if(!user){setAuthUser(null);setPhase("welcome");return;}
+      setAuthUser(user);
+      const snap=await db.ref('users/'+user.uid).once('value');
+      if(!snap.exists()){setPhase("setup");return;}
+      setPhase("gps");
+    });
+  },[]);
+
+  // DB listeners
+  useEffect(()=>{
+    if(!authUser)return;
+    const pRef=db.ref('posts');
+    const uRef=db.ref('users');
+    // categories/uid : mes cats (règles Firebase = own only en écriture, auth en lecture par uid)
+    const cRef=db.ref('categories/'+authUser.uid);
+    // allCatsRef : on écoute chaque auteur de post séparément via posts listener
+    const onP=snap=>{
+      const d=snap.val()||{};
+      const arr=Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>b.ts-a.ts);
+      setPosts(arr);
+      // Charger les cats de tous les auteurs des posts
+      const uids=[...new Set(arr.map(p=>p.uid).filter(u=>u!==authUser.uid))];
+      uids.forEach(uid=>{
+        db.ref('categories/'+uid).once('value').then(snap=>{
+          const d=snap.val()||{};
+          setAllCats(prev=>({...prev,[uid]:d}));
+        }).catch(()=>{});
+      });
+    };
+    const onU=snap=>setUsers(snap.val()||{});
+    const onC=snap=>{
+      const d=snap.val()||{};
+      setMyCats(Object.entries(d).map(([id,v])=>({id,...v})));
+      setAllCats(prev=>({...prev,[authUser.uid]:d}));
+    };
+    pRef.on('value',onP);uRef.on('value',onU);cRef.on('value',onC);
+    return()=>{pRef.off('value',onP);uRef.off('value',onU);cRef.off('value',onC);};
+  },[authUser]);
+
+  // Catégories par défaut — créées une seule fois si l'utilisateur n'en a aucune
+  const defaultCatsCreated=useRef(false);
+  useEffect(()=>{
+    if(!authUser||defaultCatsCreated.current)return;
+    const cRef=db.ref('categories/'+authUser.uid);
+    cRef.once('value').then(snap=>{
+      if(defaultCatsCreated.current)return;
+      defaultCatsCreated.current=true;
+      if(snap.exists()&&Object.keys(snap.val()||{}).length>0)return;
+      const defaults=[
+        {name:"Voyages",emoji:"✈️",access:"public"},
+        {name:"Food",emoji:"🍕",access:"public"},
+        {name:"Sorties",emoji:"🎉",access:"public"},
+        {name:"Sport",emoji:"⚽",access:"public"},
+        {name:"Privé",emoji:"🔒",access:"private"}
+      ];
+      const updates={};
+      defaults.forEach((c,i)=>{updates["def"+i]={...c};});
+      cRef.update(updates);
+    });
+  },[authUser]);
+
+  // Streak rétroactive — calculée une seule fois, prend le MAX entre existant et rétroactif
+  const streakMigrated=useRef(false);
+  useEffect(()=>{
+    if(!authUser||streakMigrated.current||posts.length===0)return;
+    streakMigrated.current=true;
+    const myPosts=posts.filter(p=>p.uid===authUser.uid);
+    if(myPosts.length===0)return;
+    const retro=computeRetroactiveStreak(myPosts);
+    if(retro.count<=1)return; // Pas la peine pour 0 ou 1
+    const sRef=db.ref(`users/${authUser.uid}/streak`);
+    sRef.once('value').then(snap=>{
+      const existing=snap.val()||{count:0,lastDay:""};
+      if(retro.count>existing.count){
+        sRef.set(retro);
+      }
+    });
+  },[authUser,posts]);
+
+  const [gpsError,setGpsError]=useState(null); // null | "denied" | "timeout" | "unavailable"
+
+  // GPS
+  useEffect(()=>{
+    if(phase!=="app"&&phase!=="gps")return;
+    if(!navigator.geolocation){setGpsError("unavailable");if(phase==="gps")setPhase("app");return;}
+    const wid=navigator.geolocation.watchPosition(
+      pos=>{
+        setGps({lat:pos.coords.latitude,lng:pos.coords.longitude});
+        setGpsError(null);
+        if(phase==="gps")setPhase("app");
+      },
+      err=>{
+        const type=err.code===1?"denied":err.code===3?"timeout":"unavailable";
+        setGpsError(type);
+        if(phase==="gps")setPhase("app");
+      },
+      {enableHighAccuracy:true,maximumAge:10000,timeout:20000}
+    );
+    return()=>navigator.geolocation.clearWatch(wid);
+  },[phase]);
+
+  // Bottom sheet + filter state — MUST be before conditional returns (Rules of Hooks)
+  const [sheetOpen,setSheetOpen]=useState("peek"); // peek | half | selected
+  const [selectedPost,setSelectedPost]=useState(null);
+  const [dateFilter,setDateFilter]=useState("all");
+  const [hiddenAuthors,setHiddenAuthors]=useState(new Set());
+  const [showFilter,setShowFilter]=useState(false);
+  const leafMapRef=useRef(null);
+  const [sheetSort,setSheetSort]=useState("near"); // near | recent
+
+  // ── Streak state ──
+  const [showCelebration,setShowCelebration]=useState(false);
+  const [celebrationCount,setCelebrationCount]=useState(0);
+
+  const signIn=async()=>{
+    setSignLoading(true);setSignError(false);
+    try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}
+    catch(e){setSignError(true);setSignLoading(false);}
+  };
+
+  // ── Phases pré-app ──
+  if(phase==="loading") return null; // couvert par SplashScreenPortal
+  if(phase==="welcome") return h(Welcome,{onStart:()=>setPhase("google")});
+  if(phase==="google") return h(GoogleSignIn,{onSign:signIn,loading:signLoading,error:signError});
+  if(phase==="setup") return h(ProfileSetup,{uid:authUser.uid,onDone:()=>setPhase("gps")});
+  if(phase==="gps") return h(GpsScreen,{onDone:(pos)=>{if(pos)setGps({lat:pos.coords.latitude,lng:pos.coords.longitude});setPhase("app");}});
+
+  // ── App principale ──
+  const myUid=authUser.uid;
+  const myBlocked=Object.keys(users[myUid]?.blocked||{});
+
+  // ── Streak computed values ──
+  const streakData=users[myUid]?.streak||{count:0,lastDay:""};
+  const today=localToday();
+  const yesterday=localYesterday();
+  const streakCount=streakData.lastDay===today||streakData.lastDay===yesterday?streakData.count:0;
+  const postedToday=posts.some(p=>p.uid===myUid&&postDayLocal(p.ts)===today);
+
+  const visiblePosts=posts.filter(p=>{
+    if(myBlocked.includes(p.uid))return false;
+    if(p.uid===myUid)return true;
+    // Vérifier l'accès catégorie
+    return canSeeAccess(p,myUid,users,allCats);
+  });
+  const slideClass=stack.length>1?"s-in":"s-back";
+  const isPublish=cur.id==="publish";
+  const isProfile=cur.id==="profile";
+  const isMapRoot=cur.id==="map"&&isRoot;
+
+  // Post live — pour la vue détail, on prend le post depuis la liste live (likes, comments à jour)
+  const livePost=cur.id==="post"&&cur.post?visiblePosts.find(p=>p.id===cur.post.id)||cur.post:null;
+
+  // Tab bar 2 onglets + pill Publier centrale
+  const TabBar=()=>{
+    if(cur.id==="post")return null;
+    return h("div",{style:{position:"fixed",bottom:"calc(16px + var(--sab))",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:428,zIndex:50}},
+    h("div",{style:{background:"rgba(255,255,255,0.78)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",borderRadius:28,boxShadow:"0 4px 28px rgba(31,38,135,0.12),0 1px 0 rgba(255,255,255,0.9)",border:"1px solid rgba(255,255,255,0.6)",padding:"8px 6px",display:"flex",alignItems:"center",gap:4}},
+      // Onglet Carte
+      h("button",{onClick:()=>goRoot("map"),style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 4px",border:"none",background:"transparent",cursor:"pointer"}},
+        h("div",{style:{width:36,height:30,borderRadius:10,background:isRoot&&cur.id==="map"?"var(--zone-teal)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}},
+          h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:isRoot&&cur.id==="map"?"#fff":"var(--zone-text-light)",strokeWidth:2},h("polygon",{points:"1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"}),h("line",{x1:8,y1:2,x2:8,y2:18}),h("line",{x1:16,y1:6,x2:16,y2:22}))
+        ),
+        h("span",{style:{fontSize:9,fontWeight:isRoot&&cur.id==="map"?700:500,color:isRoot&&cur.id==="map"?"var(--zone-teal)":"var(--zone-text-light)"}},"Carte")
+      ),
+      // Pill Publier centrale — gradient
+      h("div",{style:{flexShrink:0,position:"relative"}},
+        h(Ripple,{onClick:()=>push({id:"publish"}),style:{display:"flex",alignItems:"center",gap:6,padding:"10px 18px",background:"linear-gradient(135deg,#1DBEAA,#00D4FF)",border:"none",borderRadius:18,cursor:"pointer",boxShadow:"0 4px 16px rgba(29,190,170,0.35)",position:"relative",overflow:"hidden"}},
+          h("div",{style:{position:"absolute",top:0,left:0,right:0,height:"50%",background:"rgba(255,255,255,0.15)",borderRadius:"18px 18px 50% 50%",pointerEvents:"none"}}),
+          h("svg",{width:13,height:13,viewBox:"0 0 14 14",fill:"none",style:{position:"relative",zIndex:1}},h("path",{d:"M7 2v10M2 7h10",stroke:"#fff",strokeWidth:2,strokeLinecap:"round"})),
+          h("span",{style:{fontSize:12,fontWeight:800,color:"#fff",letterSpacing:"-0.01em",position:"relative",zIndex:1}},"Publier")
+        ),
+        h(StreakBadge,{count:streakCount,postedToday})
+      ),
+      // Onglet Recherche
+      h("button",{onClick:()=>goRoot("search"),style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 4px",border:"none",background:"transparent",cursor:"pointer"}},
+        h("div",{style:{width:36,height:30,borderRadius:10,background:isRoot&&cur.id==="search"?"var(--zone-teal)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}},
+          h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:isRoot&&cur.id==="search"?"#fff":"var(--zone-text-light)",strokeWidth:2},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
+        ),
+        h("span",{style:{fontSize:9,fontWeight:isRoot&&cur.id==="search"?700:500,color:isRoot&&cur.id==="search"?"var(--zone-teal)":"var(--zone-text-light)"}},"Recherche")
+      )
+    )
+  );};
+
+  // État bottom sheet (hooks already declared above)
+  const myUser=users[myUid]||{};
+
+  // Filtrage posts pour la carte
+  const now2=Date.now();
+  const filteredPosts=visiblePosts
+    .filter(p=>dateFilter==="all"||(dateFilter==="today"&&now2-p.ts<86400000)||(dateFilter==="week"&&now2-p.ts<604800000))
+    .filter(p=>!hiddenAuthors.has(p.uid));
+  const authorIds=[...new Set(visiblePosts.map(p=>p.uid))];
+
+  const handleSelectPost=(p)=>{
+    setSelectedPost(p);
+    setSheetOpen("selected");
+    if(leafMapRef.current&&p.lat&&p.lng){
+      leafMapRef.current.flyTo([p.lat,p.lng],16,{duration:0.6});
+    }
+  };
+
+  const handleDeselectPost=()=>{
+    setSelectedPost(null);
+    setSheetOpen("peek");
+  };
+
+  // Écran carte+sheet (render function, NOT a component — avoids remounting Leaflet on every re-render)
+  const renderMapScreen=()=>{
+    // Posts triés pour la liste
+    const sortedPosts=sheetSort==="near"
+      ?[...filteredPosts].sort((a,b)=>{
+          if(!gps)return b.ts-a.ts;
+          return haversine(gps.lat,gps.lng,a.lat,a.lng)-haversine(gps.lat,gps.lng,b.lat,b.lng);
+        })
+      :[...filteredPosts].sort((a,b)=>b.ts-a.ts);
+
+    // Avatars empilés pour le mode peek (max 4 users uniques)
+    const peekAvatars=[...new Set(filteredPosts.map(p=>p.uid))].slice(0,4);
+
+    return h("div",{style:{position:"fixed",inset:0,zIndex:5,maxWidth:460,margin:"0 auto",width:"100%"}},
+      // Carte — onClick seulement sur tap réel (pas drag/pan)
+      h("div",{style:{position:"absolute",inset:0,zIndex:1},
+        onMouseDown:e=>e.currentTarget._tapStart={x:e.clientX,y:e.clientY},
+        onTouchStart:e=>{const t=e.touches[0];e.currentTarget._tapStart={x:t.clientX,y:t.clientY};},
+        onClick:e=>{
+          const s=e.currentTarget._tapStart;
+          if(!s)return;
+          const dx=e.clientX-s.x,dy=e.clientY-s.y;
+          if(Math.sqrt(dx*dx+dy*dy)<8){// vrai tap, pas un pan
+            handleDeselectPost();
+            if(showFilter)setShowFilter(false);
+          }
+        }
+      },
+        h(ZoneMap,{posts:filteredPosts,gps,myUid,users,onSelectPost:handleSelectPost,selectedPostId:selectedPost?.id,onMapReady:m=>leafMapRef.current=m,allCats})
+      ),
+
+      // Overlays haut — collés en haut avec safe area
+      h("div",{style:{position:"absolute",top:0,left:0,right:0,zIndex:20,padding:"env(safe-area-inset-top, 44px) 16px 12px",paddingTop:"max(env(safe-area-inset-top, 44px), 44px)",background:"linear-gradient(to bottom, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0) 100%)",pointerEvents:"none"}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+          // Avatar profil — rounded-rect style Bump
+          h("div",{style:{pointerEvents:"all",cursor:"pointer"},onClick:()=>push({id:"profile",uk:myUid})},
+            myUser.photo
+              ?h("img",{src:myUser.photo,style:{width:48,height:48,borderRadius:14,objectFit:"cover",border:"2.5px solid rgba(255,255,255,0.95)",boxShadow:"0 4px 16px rgba(29,158,117,0.32)",display:"block"}})
+              :h("div",{style:{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg,${uidHue(myUid)},${uidHue(myUid)}cc)`,border:"2.5px solid rgba(255,255,255,0.95)",boxShadow:"0 4px 16px rgba(29,158,117,0.32)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"#fff"}},(myUser.pseudo||"?").slice(0,2).toUpperCase())
+          ),
+          h("div",{style:{flex:1}}),
+          // Indicateur GPS — pill colorée selon l'état
+          h("div",{style:{pointerEvents:"all",display:"flex",alignItems:"center",gap:5,padding:"6px 10px",borderRadius:16,
+            background:gps?"rgba(232,247,242,0.95)":gpsError==="denied"?"rgba(254,242,242,0.95)":"rgba(254,249,237,0.95)",
+            backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",
+            border:gps?"0.5px solid rgba(29,158,117,0.3)":gpsError==="denied"?"0.5px solid rgba(239,68,68,0.3)":"0.5px solid rgba(251,191,36,0.4)",
+            boxShadow:"0 2px 8px rgba(0,0,0,0.06)",cursor:gps?null:"pointer"},
+            onClick:gps?null:()=>setPhase("gps")
+          },
+            // Pastille pulsante si pas de GPS
+            h("div",{style:{
+              width:7,height:7,borderRadius:"50%",flexShrink:0,
+              background:gps?"#1D9E75":gpsError==="denied"?"#ef4444":"#f59e0b",
+              boxShadow:gps?"0 0 0 2px rgba(29,158,117,0.2)":gpsError==="denied"?"0 0 0 2px rgba(239,68,68,0.2)":"0 0 0 2px rgba(245,158,11,0.2)"
+            }}),
+            h("span",{style:{fontSize:11,fontWeight:700,
+              color:gps?"#0F6E56":gpsError==="denied"?"#991b1b":"#92400e"
+            }},
+              gps?"GPS actif":gpsError==="denied"?"GPS refusé":gpsError==="timeout"?"Signal faible":"GPS…"
+            )
+          ),
+          // Bouton Filtrer glassmorphism
+          h("button",{onClick:()=>setShowFilter(v=>!v),style:{pointerEvents:"all",padding:"8px 14px",background:"rgba(255,255,255,0.88)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"0.5px solid rgba(255,255,255,0.95)",borderRadius:20,fontSize:12,fontWeight:600,color:showFilter||dateFilter!=="all"||hiddenAuthors.size>0?"var(--green)":"var(--text)",cursor:"pointer",boxShadow:"0 2px 12px rgba(0,0,0,0.08)",display:"flex",alignItems:"center",gap:5}},
+            h("svg",{width:12,height:12,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2.5},h("polygon",{points:"22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"})),
+            "Filtrer"+(hiddenAuthors.size>0||dateFilter!=="all"?" ·":"")
+          )
+        ),
+        // Banner d'erreur GPS sous les boutons — cliquable pour relancer
+        gpsError&&!gps&&h("div",{style:{pointerEvents:"all",marginTop:8,padding:"10px 14px",borderRadius:14,
+          background:gpsError==="denied"?"rgba(254,242,242,0.97)":"rgba(254,249,237,0.97)",
+          backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",
+          border:gpsError==="denied"?"0.5px solid rgba(239,68,68,0.25)":"0.5px solid rgba(251,191,36,0.35)",
+          boxShadow:"0 2px 10px rgba(0,0,0,0.08)",cursor:"pointer"},
+          onClick:()=>setPhase("gps")
+        },
+          h("div",{style:{fontSize:12,fontWeight:700,color:gpsError==="denied"?"#991b1b":"#92400e",marginBottom:2}},
+            gpsError==="denied"?"📍 Localisation désactivée":"📍 Signal GPS faible"
+          ),
+          h("div",{style:{fontSize:11,color:gpsError==="denied"?"#7f1d1d":"#78350f"}},
+            gpsError==="denied"
+              ?"Appuie ici pour voir comment l'activer"
+              :"La carte est centrée sur Paris par défaut. Appuie pour réessayer."
+          )
+        )
+      ),
+
+      // Panneau filtres — positionné sous le gradient haut
+      showFilter&&h("div",{style:{position:"absolute",top:"calc(max(env(safe-area-inset-top, 44px), 44px) + 60px)",right:16,zIndex:30,background:"#fff",borderRadius:"var(--rl)",padding:"14px 16px",minWidth:220,boxShadow:"var(--shadow2)"}},
+        h("div",{style:{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:8}},"Période"),
+        h("div",{style:{display:"flex",gap:5,marginBottom:14}},
+          [{v:"all",l:"Tous"},{v:"today",l:"Aujourd'hui"},{v:"week",l:"Semaine"}].map(o=>
+            h("button",{key:o.v,onClick:()=>setDateFilter(o.v),style:{flex:1,padding:"5px 4px",fontSize:11,borderRadius:"var(--r)",cursor:"pointer",fontWeight:dateFilter===o.v?600:400,background:dateFilter===o.v?"var(--gbg)":"var(--bg2)",border:"none",color:dateFilter===o.v?"var(--green)":"var(--text)"}},o.l)
+          )
+        ),
+        h("div",{style:{fontSize:12,fontWeight:600,color:"var(--text)",marginBottom:8,display:"flex",justifyContent:"space-between"}},
+          "Personnes",
+          h("button",{onClick:()=>setHiddenAuthors(new Set()),style:{fontSize:11,background:"transparent",border:"none",cursor:"pointer",color:"var(--green)",padding:0}},"Tous")
+        ),
+        authorIds.map(uid=>{const u=users[uid];const shown=!hiddenAuthors.has(uid);const hue=userStyle(uid,users).color;
+          return h("div",{key:uid,onClick:()=>setHiddenAuthors(s=>{const n=new Set(s);n.has(uid)?n.delete(uid):n.add(uid);return n;}),style:{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer"}},
+            h("div",{style:{width:10,height:10,borderRadius:"50%",flexShrink:0,background:shown?hue:"var(--border2)",border:`1.5px solid ${hue}`}}),
+            h("span",{style:{fontSize:12,flex:1,color:shown?"var(--text)":"var(--text3)"}},u?.pseudo||uid.slice(0,8)),
+            h("span",{style:{fontSize:11,color:"var(--text3)"}},visiblePosts.filter(p=>p.uid===uid).length)
+          );
+        })
+      ),
+
+      // ── DOCK UNIFIÉ : sheet + tab bar dans un seul conteneur ──
+      h("div",{style:{
+        position:"absolute",bottom:"calc(16px + var(--sab))",left:8,right:8,zIndex:20,
+        background:"rgba(255,255,255,0.92)",
+        backdropFilter:"blur(24px)",
+        WebkitBackdropFilter:"blur(24px)",
+        border:"1px solid rgba(255,255,255,0.7)",
+        borderRadius:24,
+        boxShadow:"0 -2px 20px rgba(31,38,135,0.08),0 4px 12px rgba(0,0,0,0.04)",
+        display:"flex",flexDirection:"column",
+        transition:"height 0.28s cubic-bezier(.25,.46,.45,.94)",
+        overflow:"hidden"
+      }},
+
+        // ━━ CONTENU SHEET (au-dessus de la nav) ━━
+
+        // ── PEEK : compteur compact ──
+        sheetOpen==="peek"&&h("div",{
+          onClick:()=>setSheetOpen("half"),
+          style:{display:"flex",alignItems:"center",padding:"10px 16px",cursor:"pointer",gap:10}
+        },
+          peekAvatars.length>0&&h("div",{style:{display:"flex",flexShrink:0}},
+            peekAvatars.map((uid,i)=>{
+              const u=users[uid];const hue=userStyle(uid,users).color;
+              return u?.photo
+                ?h("img",{key:uid,src:u.photo,style:{width:22,height:22,borderRadius:"50%",objectFit:"cover",border:"2px solid #fff",marginLeft:i>0?-7:0,position:"relative",zIndex:4-i}})
+                :h("div",{key:uid,style:{width:22,height:22,borderRadius:"50%",background:hue,border:"2px solid #fff",marginLeft:i>0?-7:0,position:"relative",zIndex:4-i,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,fontWeight:700,color:"#fff"}},(u?.pseudo||"?").slice(0,2).toUpperCase());
+            })
+          ),
+          h("span",{style:{fontSize:13,fontWeight:700,color:"var(--zone-text)",flex:1}},
+            filteredPosts.length+" post"+(filteredPosts.length>1?"s":"")
+          ),
+          h("svg",{width:14,height:14,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text-light)",strokeWidth:2.5,style:{flexShrink:0}},h("polyline",{points:"18 15 12 9 6 15"}))
+        ),
+
+        // ── HALF : liste triée ──
+        sheetOpen==="half"&&h("div",{style:{display:"flex",flexDirection:"column",height:Math.round(window.innerHeight*0.42)-62}},
+          h("div",{onClick:()=>setSheetOpen("peek"),style:{padding:"8px 16px 0",cursor:"pointer",flexShrink:0}},
+            h("div",{style:{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 8px"}})
+          ),
+          h("div",{style:{display:"flex",gap:6,padding:"0 16px 8px",flexShrink:0}},
+            [{v:"near",l:"Proches"},{v:"recent",l:"Récents"}].map(t=>
+              h("button",{key:t.v,onClick:()=>setSheetSort(t.v),style:{
+                padding:"4px 14px",fontSize:12,fontWeight:sheetSort===t.v?700:500,
+                borderRadius:20,cursor:"pointer",border:"none",
+                background:sheetSort===t.v?"var(--gbg)":"rgba(0,0,0,0.04)",
+                color:sheetSort===t.v?"var(--green)":"var(--zone-text-light)"
+              }},t.l)
+            )
+          ),
+          h("div",{style:{flex:1,overflowY:"auto",scrollbarWidth:"none"}},
+            sortedPosts.length===0
+              ?h("div",{style:{padding:"28px 16px",textAlign:"center",color:"var(--zone-text-light)",fontSize:13}},"Aucun post dans cette zone")
+              :sortedPosts.map((p,idx)=>{
+                  const u=users[p.uid];
+                  const d=gps?haversine(gps.lat,gps.lng,p.lat,p.lng):0;
+                  const ul=canSee(p,myUid,gps);
+                  const hue=userStyle(p.uid,users).color;
+                  const isOwn=p.uid===myUid;
+                  return h("div",{key:p.id,onClick:()=>handleSelectPost(p),style:{display:"flex",gap:10,padding:"8px 16px",cursor:"pointer",alignItems:"center",borderBottom:"0.5px solid rgba(0,0,0,0.04)",animation:"listSlideIn 0.35s cubic-bezier(.25,.46,.45,.94) both",animationDelay:`${idx*45}ms`}},
+                    u?.photo
+                      ?h("img",{src:u.photo,style:{width:36,height:36,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"2px solid "+hue+"33"}})
+                      :h("div",{style:{width:36,height:36,borderRadius:"50%",background:isOwn?"#1D9E75":hue,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff"}},(u?.pseudo||"?").slice(0,2).toUpperCase()),
+                    h("div",{style:{flex:1,minWidth:0}},
+                      h("div",{style:{display:"flex",alignItems:"center",gap:5}},
+                        h("span",{style:{fontSize:13,fontWeight:600,color:"var(--zone-text)"}},u?.pseudo||"…"),
+                        isOwn&&h("span",{style:{fontSize:8,fontWeight:600,color:"var(--green)",background:"var(--gbg)",padding:"1px 5px",borderRadius:5}},"Moi")
+                      ),
+                      h("div",{style:{fontSize:11,color:"var(--zone-text-light)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},
+                        ul?(p.text||"📷 Photo"):"🔒 Contenu verrouillé"
+                      )
+                    ),
+                    h("div",{style:{textAlign:"right",flexShrink:0}},
+                      h("div",{style:{fontSize:11,fontWeight:600,color:ul?"var(--green)":"var(--zone-text-light)"}},fmtD(d))
+                    )
+                  );
+                })
+          )
+        ),
+
+        // ── SELECTED : card post compacte ──
+        sheetOpen==="selected"&&selectedPost&&h("div",{style:{padding:"8px 14px 6px"}},
+          h("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+            selectedPost.photo&&canSee(selectedPost,myUid,gps)
+              ?h("img",{src:selectedPost.photo,style:{width:50,height:50,borderRadius:10,objectFit:"cover",flexShrink:0}})
+              :h("div",{style:{width:50,height:50,borderRadius:10,background:canSee(selectedPost,myUid,gps)?"var(--gbg)":"rgba(0,0,0,0.04)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}},canSee(selectedPost,myUid,gps)?"📍":"🔒"),
+            h("div",{style:{flex:1,minWidth:0}},
+              h("div",{style:{display:"flex",alignItems:"center",gap:5,marginBottom:2}},
+                h(Av,{photo:users[selectedPost.uid]?.photo,pseudo:users[selectedPost.uid]?.pseudo||"?",sz:18,hue:uidHue(selectedPost.uid)}),
+                h("span",{style:{fontSize:13,fontWeight:700,color:"var(--zone-text)"}},users[selectedPost.uid]?.pseudo||"…"),
+                h("span",{style:{fontSize:11,fontWeight:600,color:uidHue(selectedPost.uid)}},gps?fmtD(haversine(gps.lat,gps.lng,selectedPost.lat,selectedPost.lng)):"")
+              ),
+              h("div",{style:{fontSize:11,color:"var(--zone-text-light)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},
+                canSee(selectedPost,myUid,gps)?(selectedPost.text||"📷 Photo"):"🔒 Rapproche-toi pour débloquer"
+              )
+            ),
+            h("button",{onClick:e=>{e.stopPropagation();handleDeselectPost();},style:{width:26,height:26,borderRadius:8,background:"rgba(0,0,0,0.05)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:13,color:"var(--text3)"}},"×")
+          ),
+          h(Ripple,{onClick:()=>push({id:"post",post:selectedPost}),style:{
+            width:"100%",padding:"9px",fontSize:13,fontWeight:700,marginTop:8,
+            background:"linear-gradient(135deg,#1DBEAA,#00D4FF)",
+            color:"#fff",border:"none",borderRadius:12,cursor:"pointer",
+            boxShadow:"0 3px 12px rgba(29,190,170,0.25)"
+          }},"Voir le post →")
+        ),
+
+        // ━━ SÉPARATEUR ━━
+        h("div",{style:{height:0.5,background:"rgba(0,0,0,0.06)",flexShrink:0}}),
+
+        // ━━ TAB BAR intégrée ━━
+        h("div",{style:{display:"flex",alignItems:"center",padding:"6px 6px 8px",flexShrink:0,gap:4}},
+          h("button",{onClick:()=>{goRoot("map");setSheetOpen("peek");setSelectedPost(null);},style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px",border:"none",background:"transparent",cursor:"pointer"}},
+            h("div",{style:{width:32,height:26,borderRadius:8,background:isRoot&&cur.id==="map"?"var(--zone-teal)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}},
+              h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:isRoot&&cur.id==="map"?"#fff":"var(--zone-text-light)",strokeWidth:2},h("polygon",{points:"1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"}),h("line",{x1:8,y1:2,x2:8,y2:18}),h("line",{x1:16,y1:6,x2:16,y2:22}))
+            ),
+            h("span",{style:{fontSize:9,fontWeight:isRoot&&cur.id==="map"?700:500,color:isRoot&&cur.id==="map"?"var(--zone-teal)":"var(--zone-text-light)"}},"Carte")
+          ),
+          h("div",{style:{flexShrink:0,position:"relative"}},
+            h(Ripple,{onClick:()=>push({id:"publish"}),style:{display:"flex",alignItems:"center",gap:5,padding:"8px 16px",background:"linear-gradient(135deg,#1DBEAA,#00D4FF)",border:"none",borderRadius:16,cursor:"pointer",boxShadow:"0 3px 12px rgba(29,190,170,0.3)",position:"relative",overflow:"hidden"}},
+              h("div",{style:{position:"absolute",top:0,left:0,right:0,height:"50%",background:"rgba(255,255,255,0.15)",borderRadius:"16px 16px 50% 50%",pointerEvents:"none"}}),
+              h("svg",{width:12,height:12,viewBox:"0 0 14 14",fill:"none",style:{position:"relative",zIndex:1}},h("path",{d:"M7 2v10M2 7h10",stroke:"#fff",strokeWidth:2,strokeLinecap:"round"})),
+              h("span",{style:{fontSize:11,fontWeight:800,color:"#fff",position:"relative",zIndex:1}},"Publier")
+            ),
+            h(StreakBadge,{count:streakCount,postedToday})
+          ),
+          h("button",{onClick:()=>goRoot("search"),style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px",border:"none",background:"transparent",cursor:"pointer"}},
+            h("div",{style:{width:32,height:26,borderRadius:8,background:isRoot&&cur.id==="search"?"var(--zone-teal)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}},
+              h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:isRoot&&cur.id==="search"?"#fff":"var(--zone-text-light)",strokeWidth:2},h("circle",{cx:11,cy:11,r:8}),h("path",{d:"m21 21-4.35-4.35"}))
+            ),
+            h("span",{style:{fontSize:9,fontWeight:isRoot&&cur.id==="search"?700:500,color:isRoot&&cur.id==="search"?"var(--zone-teal)":"var(--zone-text-light)"}},"Recherche")
+          )
+        )
+      )
+    );
+  };
+
+  return h("div",{style:{minHeight:"100vh",background:isMapRoot?"var(--bg3)":"linear-gradient(135deg,rgba(29,190,170,0.06) 0%,rgba(155,111,255,0.06) 100%)",overflow:isMapRoot?"hidden":undefined,height:isMapRoot?"100vh":undefined}},
+    // Écran carte (page principale)
+    isMapRoot&&renderMapScreen(),
+
+    // Autres écrans
+    !isMapRoot&&h("div",{key:cur.id+(cur.uk||""),className:stack.length>1?slideClass:""},
+      cur.id==="search"&&h(SearchScreen,{users,myUid,onGoProfile:uid=>push({id:"profile",uk:uid})}),
+      cur.id==="profile"&&h(ProfileScreen,{uid:cur.uk||myUid,myUid,users,posts:visiblePosts,gps,cats:myCats,allCats,onBack:pop,onGoProfile:uid=>push({id:"profile",uk:uid}),onEditAccess:id=>push(id==="__cats__"?{id:"cats"}:{id:"access",catId:id}),onFollowList:(type)=>push({id:"followlist",uk:cur.uk||myUid,type})}),
+      cur.id==="followlist"&&h(FollowListScreen,{
+        title:cur.type==="followers"?"Abonnés":"Abonnements",
+        uids:cur.type==="followers"
+          ?Object.entries(users).filter(([uid,u])=>uid!==cur.uk&&u?.following&&u.following[cur.uk]).map(([uid])=>uid)
+          :Object.keys(users[cur.uk]?.following||{}),
+        users,myUid,following:users[myUid]?.following||{},
+        onGoProfile:uid=>push({id:"profile",uk:uid}),onBack:pop
+      }),
+      cur.id==="publish"&&h(PublishScreen,{myUid,gps,cats:myCats,onBack:pop,onPostDone:newCount=>{
+        // N'afficher la célébration que pour le premier post du jour
+        if(!postedToday){setCelebrationCount(newCount);setShowCelebration(true);}
+      }}),
+      cur.id==="post"&&cur.post&&h("div",{style:{minHeight:"100vh",paddingBottom:"calc(100px + var(--sab))"}},
+        h("div",{style:{padding:"calc(52px + var(--sat)) 0 8px",display:"flex",alignItems:"center",gap:12,paddingLeft:16}},
+          h("button",{onClick:pop,style:{width:40,height:40,borderRadius:12,background:"rgba(255,255,255,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(255,255,255,0.8)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(31,38,135,0.06)",flexShrink:0}},
+            h("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"var(--zone-text)",strokeWidth:2.5},h("polyline",{points:"15 18 9 12 15 6"}))
+          ),
+          h("span",{style:{fontSize:16,fontWeight:700,color:"var(--zone-text)"}},users[cur.post.uid]?.pseudo||"Post")
+        ),
+        h(PostCard,{post:livePost,myUid,gps,cats:myCats,users,
+          onAuthor:uid=>push({id:"profile",uk:uid}),
+          onEdit:(id,txt)=>patchPost(id,{text:txt}),
+          onDelete:id=>{rmPost(id);pop();}
+        })
+      ),
+      cur.id==="cats"&&h(CatsScreen,{myUid,cats:myCats,onBack:pop,onEditAccess:id=>push({id:"access",catId:id})}),
+      cur.id==="access"&&myCats.find(c=>c.id===cur.catId)&&h(AccessScreen,{cat:myCats.find(c=>c.id===cur.catId),myUid,users,onBack:pop})
+    ),
+    !isMapRoot&&!isPublish&&!isProfile&&cur.id!=="post"&&h(TabBar),
+    // Streak celebration overlay
+    showCelebration&&h(StreakCelebration,{count:celebrationCount,onDone:()=>setShowCelebration(false)})
+  );
+}
+
+// ── SPLASH SCREEN — animation de chargement ──────────────
+function SplashScreenPortal(){
+  const [visible,setVisible]=useState(true);
+  const [barW,setBarW]=useState(0);
+  const containerRef=useRef(null);
+  const lORef=useRef(null);
+  const oWrapRef=useRef(null);
+  const startedRef=useRef(false);
+  const minDoneRef=useRef(false);
+  const authDoneRef=useRef(false);
+
+  useEffect(()=>{
+    // Barre de progression
+    let p=0;
+    const iv=setInterval(()=>{
+      p=Math.min(100,p+(100/2500*60)*(0.5+Math.random()*0.9));
+      setBarW(p);
+      if(p>=100)clearInterval(iv);
+    },60);
+    // Durée minimum 2.5s
+    const t=setTimeout(()=>{minDoneRef.current=true;tryStart();},2500);
+    // Écoute Firebase Auth (résout quand l'état est connu)
+    const unsub=auth.onAuthStateChanged(()=>{authDoneRef.current=true;tryStart();});
+    return()=>{clearInterval(iv);clearTimeout(t);unsub();};
+  },[]);
+
+  const tryStart=()=>{
+    if(startedRef.current||!minDoneRef.current||!authDoneRef.current)return;
+    startedRef.current=true;
+    runAnim();
+  };
+
+  const runAnim=async()=>{
+    const c=containerRef.current;
+    const lO=lORef.current;
+    const oWrap=oWrapRef.current;
+    if(!c||!lO||!oWrap)return;
+
+    const lZ=c.querySelector('#splZ');
+    const lN=c.querySelector('#splN');
+    const lE=c.querySelector('#splE');
+    const tag=c.querySelector('#splTag');
+    const logo=c.querySelector('#splLogo');
+    const barWrap=c.querySelector('#splBarWrap');
+    const oEl=oWrap.firstChild;
+
+    // Mesure position réelle du O dans le container
+    const oRect=lO.getBoundingClientRect();
+    const cRect=c.getBoundingClientRect();
+    const oCX=oRect.left+oRect.width/2-cRect.left;
+    const oCY=oRect.top+oRect.height/2-cRect.top;
+    const cCX=cRect.width/2;
+    const cCY=cRect.height/2;
+
+    // Positionne le O flottant exactement sur le O du mot
+    oWrap.style.cssText=`position:absolute;left:${oCX-oRect.width/2}px;top:${oCY-oRect.height/2}px;opacity:1;z-index:10;pointer-events:none;`;
+    lO.style.visibility='hidden';
+
+    // ── Phase 1 : O s'illumine, Z N E s'effacent ──
+    oEl.style.transition='color .4s,text-shadow .4s';
+    oEl.style.color='#1DBEAA';
+    oEl.style.textShadow='0 0 32px rgba(29,190,170,1),0 0 80px rgba(29,190,170,0.5)';
+    if(tag){tag.style.transition='opacity .3s';tag.style.opacity='0';}
+    if(logo){logo.style.transition='opacity .3s';logo.style.opacity='0';}
+    if(barWrap){barWrap.style.transition='opacity .3s';barWrap.style.opacity='0';}
+    const fade=(el,dx)=>{if(!el)return;el.style.transition='opacity .3s,transform .3s';el.style.opacity='0';el.style.transform=`translateX(${dx}px)`;};
+    setTimeout(()=>fade(lZ,-14),0);
+    setTimeout(()=>fade(lN,14),70);
+    setTimeout(()=>fade(lE,22),140);
+
+    await new Promise(r=>setTimeout(r,560));
+
+    // ── Phase 2 : O glisse vers le centre exact ──
+    oWrap.style.transition='transform .55s cubic-bezier(.25,.46,.45,.94)';
+    oWrap.style.transform=`translate(${cCX-oCX}px,${cCY-oCY}px)`;
+
+    await new Promise(r=>setTimeout(r,600));
+
+    // ── Phase 3 : O grossit → plongeon + overlay disparaît ──
+    oEl.style.transition='transform 1s cubic-bezier(.3,0,.5,1),opacity .4s .45s';
+    oEl.style.transform='scale(26)';
+    oEl.style.opacity='0';
+    c.style.transition='opacity .55s .3s';
+    c.style.opacity='0';
+
+    await new Promise(r=>setTimeout(r,1100));
+    setVisible(false);
+  };
+
+  if(!visible)return null;
+
+  const LS={fontSize:82,fontWeight:900,color:'#fff',fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',lineHeight:1,display:'inline-block'};
+
+  return h("div",{ref:containerRef,style:{position:'fixed',top:0,bottom:0,left:0,right:0,maxWidth:460,margin:'0 auto',zIndex:9999,background:'#090f1e',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',overflow:'hidden'}},
+    h(Aurora),
+    h("div",{id:'splLogo',style:{width:62,height:62,borderRadius:18,background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.18)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:18,animation:'pulseGlow 2.5s ease-in-out infinite',position:'relative',zIndex:2}},
+      h("span",{className:"shiny-text",style:{fontSize:26,fontWeight:900}},"Z")
+    ),
+    h("div",{style:{display:'flex',alignItems:'center',letterSpacing:'5px',position:'relative',zIndex:2}},
+      h("span",{id:'splZ',style:LS},"Z"),
+      h("span",{ref:lORef,style:LS},"O"),
+      h("span",{id:'splN',style:LS},"N"),
+      h("span",{id:'splE',style:LS},"E")
+    ),
+    h("div",{id:'splTag',style:{fontSize:11,color:'rgba(255,255,255,0.38)',letterSpacing:'3px',marginTop:14,marginBottom:28,position:'relative',zIndex:2}},"Le monde autour de toi"),
+    h("div",{id:'splBarWrap',style:{width:90,height:2,background:'rgba(255,255,255,0.1)',borderRadius:1,overflow:'hidden',position:'relative',zIndex:2}},
+      h("div",{style:{height:'100%',background:'linear-gradient(90deg,#1DBEAA,#9B6FFF)',borderRadius:1,width:barW+'%',transition:'width .08s linear'}})
+    ),
+    // O flottant pour l'animation
+    h("div",{ref:oWrapRef,style:{position:'absolute',top:0,left:0,opacity:0,pointerEvents:'none'}},
+      h("span",{style:{...LS,display:'block',transformOrigin:'center center'}},"O")
+    )
+  );
+}
+
+// ── BANNIÈRE INSTALLATION iOS PWA ────────────────────────
+function IOSInstallBanner(){
+  const [show,setShow]=useState(false);
+  const [dismissed,setDismissed]=useState(false);
+
+  useEffect(()=>{
+    // Déjà installée = standalone, on n'affiche rien
+    const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
+    // Déjà refusée récemment (7 jours)
+    const lastDismiss=localStorage.getItem('zone_install_dismiss');
+    const tooSoon=lastDismiss&&(Date.now()-parseInt(lastDismiss))<7*24*3600*1000;
+    // Seulement sur iOS Safari
+    const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isSafari=/safari/i.test(navigator.userAgent)&&!/chrome|crios|fxios/i.test(navigator.userAgent);
+    if(isIOS&&isSafari&&!isStandalone&&!tooSoon){
+      setTimeout(()=>setShow(true),3000);
+    }
+  },[]);
+
+  const dismiss=()=>{
+    localStorage.setItem('zone_install_dismiss',Date.now().toString());
+    setDismissed(true);
+  };
+
+  if(!show||dismissed)return null;
+
+  return h("div",{style:{
+    position:"fixed",bottom:"calc(16px + var(--sab))",left:16,right:16,
+    maxWidth:428,margin:"0 auto",zIndex:200,
+    background:"rgba(13,17,23,0.97)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",
+    borderRadius:20,padding:"16px 16px 14px",
+    boxShadow:"0 8px 40px rgba(0,0,0,0.4),0 0 0 0.5px rgba(255,255,255,0.1)",
+    animation:"fadeUp .35s cubic-bezier(.25,.46,.45,.94) both"
+  }},
+    // Header
+    h("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        h("div",{style:{width:40,height:40,borderRadius:10,background:"#1D9E75",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+          h("span",{style:{fontSize:20,color:"#fff",fontWeight:800}},"Z")
+        ),
+        h("div",null,
+          h("div",{style:{fontSize:14,fontWeight:700,color:"#fff"}},"Installer ZONE"),
+          h("div",{style:{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:1}},"Ajouter à l'écran d'accueil")
+        )
+      ),
+      h("button",{onClick:dismiss,style:{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"50%",width:26,height:26,cursor:"pointer",color:"rgba(255,255,255,0.6)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},"×")
+    ),
+    // Étapes
+    h("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:14}},
+      [
+        ["1","Appuie sur",h("svg",{width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"rgba(255,255,255,0.9)",strokeWidth:2,style:{display:"inline",verticalAlign:"middle",margin:"0 3px"}},h("path",{d:"M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"}),h("polyline",{points:"16 6 12 2 8 6"}),h("line",{x1:"12",y1:"2",x2:"12",y2:"15"})),"en bas de Safari"],
+        ["2","Choisis","«\u00a0Sur l'écran d'accueil\u00a0»"],
+        ["3","Appuie sur","«\u00a0Ajouter\u00a0»"],
+      ].map(([num,before,mid,after])=>
+        h("div",{key:num,style:{display:"flex",alignItems:"center",gap:8}},
+          h("div",{style:{width:20,height:20,borderRadius:"50%",background:"rgba(29,158,117,0.25)",border:"1px solid rgba(29,158,117,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#5DCAA5",flexShrink:0}},num),
+          h("div",{style:{fontSize:13,color:"rgba(255,255,255,0.75)",lineHeight:1.4}},before," ",mid,after||"")
+        )
+      )
+    ),
+    // Flèche pointant vers le bas (le bouton partage est en bas sur iOS)
+    h("div",{style:{display:"flex",justifyContent:"center"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"rgba(255,255,255,0.35)"}},
+        "Le bouton partage est en bas de l'écran",
+        h("svg",{width:12,height:12,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2},h("polyline",{points:"6 9 12 15 18 9"}))
+      )
+    )
+  );
+}
+
+ReactDOM.render(h(App),document.getElementById("root"));
+
+// Splash screen — overlay fixe au-dessus de tout
+const splashRoot=document.createElement('div');
+document.body.appendChild(splashRoot);
+ReactDOM.render(h(SplashScreenPortal),splashRoot);
+
+// Injecte la bannière dans un second root
+const bannerRoot=document.createElement('div');
+document.body.appendChild(bannerRoot);
+ReactDOM.render(h(IOSInstallBanner),bannerRoot);
+</script>
+</body>
+</html>
