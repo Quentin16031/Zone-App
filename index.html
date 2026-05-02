@@ -1221,17 +1221,19 @@ function PublishScreen({myUid,gps,cats,onBack,onPostDone}){
   const doPost=async()=>{
     if(!canPost||saving)return;
     setSaving(true);
-    let finalPhoto=photo;
-    if(photo){
-      const compressed=await new Promise(ok=>{const i=new Image();i.onload=()=>{const MAX=800,sc=Math.min(1,MAX/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=Math.round(i.width*sc);c.height=Math.round(i.height*sc);c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.6));};i.src=photo;});
-      finalPhoto=compressed;
-    }
-    await pushPost(myUid,{text:txt.trim(),photo:finalPhoto||null,lat:postGps.lat,lng:postGps.lng,radius:rad,cat:sel,uid:myUid});
-    // Mise à jour du streak
-    const newCount=await updateStreak(myUid);
-    setSaving(false);
-    if(onPostDone)onPostDone(newCount);
-    onBack();
+    try{
+      let finalPhoto=photo;
+      if(photo){
+        const compressed=await new Promise(ok=>{const i=new Image();i.onload=()=>{const MAX=800,sc=Math.min(1,MAX/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=Math.round(i.width*sc);c.height=Math.round(i.height*sc);c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.6));};i.src=photo;});
+        finalPhoto=compressed;
+      }
+      if(finalPhoto&&finalPhoto.length>280000){setSaving(false);alert("Photo trop grande. Réessaie avec une image différente.");return;}
+      await pushPost(myUid,{text:txt.trim()||null,photo:finalPhoto||null,lat:postGps.lat,lng:postGps.lng,radius:rad,cat:sel,uid:myUid});
+      const newCount=await updateStreak(myUid);
+      setSaving(false);
+      if(onPostDone)onPostDone(newCount);
+      onBack();
+    }catch(e){setSaving(false);alert("Erreur lors de la publication. Réessaie.");}
   };
 
   const BackBtn=({onClick})=>h("button",{onClick,style:{width:40,height:40,borderRadius:12,background:"#fff",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--shadow)",flexShrink:0}},
